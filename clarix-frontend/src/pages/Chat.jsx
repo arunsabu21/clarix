@@ -39,9 +39,6 @@ function Chat() {
     }
   };
 
-  const API = import.meta.env.VITE_API_BASE_URL;
-  console.log(API);
-
   return (
     <div className="chat">
       <div className={`chat-content ${messages.length > 0 ? "has-messages" : ""}`}>
