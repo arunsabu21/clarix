@@ -31,6 +31,7 @@ ALLOWED_HOSTS = config(
     "ALLOWED_HOSTS", cast=lambda v: [s.strip() for s in v.split(",")]
 )
 
+AUTH_USER_MODEL = "authentication.User"
 
 # Application definition
 
@@ -43,6 +44,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "corsheaders",
+    "authentication",
+    "rest_framework_simplejwt.token_blacklist",
 ]
 
 MIDDLEWARE = [
@@ -142,8 +145,14 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 # JWT config
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
     
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+# For development only
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'Clarix <noreply@clarix.com>'
