@@ -86,3 +86,48 @@ textarea {
   display: flex;
   flex-direction: column;
 }
+
+/* Container (top center floating) */
+.msg-container {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+
+  display: flex;
+  justify-content: center;
+  pointer-events: none; /* prevents blocking clicks */
+}
+
+/* Your existing style */
+.msg-wrap {
+  pointer-events: auto;
+
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 14px;
+  border-radius: 10px;
+
+  background: var(--msg-bg);
+  border: 1px solid var(--msg-border);
+  color: var(--msg-color);
+
+  font-size: 13.5px;
+  line-height: 1.4;
+
+  animation: msgIn 0.2s ease both;
+}
+
+/* Animation */
+@keyframes msgIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

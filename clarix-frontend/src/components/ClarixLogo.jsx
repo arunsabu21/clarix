@@ -1,5 +1,5 @@
 export default function ClarixLogo({ dark = true, size = "md" }) {
-  const s = { sm: 0.55, md: 1, lg: 1.5 }[size];
+  const s = { sm: 0.55, md: 0.65, lg: 1.5 }[size];
   const iconSize = 44 * s;
   const fontSize = 30 * s;
   const gap = 13 * s;
