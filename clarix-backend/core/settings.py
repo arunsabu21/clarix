@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "authentication",
     "rest_framework_simplejwt.token_blacklist",
+    "chat",
 ]
 
 MIDDLEWARE = [
@@ -156,3 +157,7 @@ SIMPLE_JWT = {
 # For development only
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 DEFAULT_FROM_EMAIL = 'Clarix <noreply@clarix.com>'
+
+# LLM API
+GEMINI_API_KEY = config("GEMINI_API_KEY")
+GROQ_API_KEY = config("GROQ_API_KEY")
