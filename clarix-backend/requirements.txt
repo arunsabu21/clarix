@@ -27,6 +27,7 @@ httpx==0.28.1
 idna==3.11
 proto-plus==1.27.2
 protobuf==5.29.6
+psycopg2-binary==2.9.11
 pyasn1==0.6.3
 pyasn1_modules==0.4.2
 pycparser==3.0

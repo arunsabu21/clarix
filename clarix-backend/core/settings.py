@@ -86,8 +86,12 @@ WSGI_APPLICATION = "core.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": config("DB_NAME"),
+        "USER": config("DB_USER"),
+        "PASSWORD": config("DB_PASSWORD"),
+        "HOST": config("DB_HOST"),
+        "PORT": config("DB_PORT"),
     }
 }
 
@@ -145,7 +149,7 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = config(
     "CORS_ALLOWED_ORIGINS",
     default="http://localhost:5173",
-    cast=lambda v: [s.strip() for s in v.split(",")]
+    cast=lambda v: [s.strip() for s in v.split(",")],
 )
 
 # JWT config
@@ -154,13 +158,12 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
-    
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
 # For development only
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-DEFAULT_FROM_EMAIL = 'Clarix <noreply@clarix.com>'
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = "Clarix <noreply@clarix.com>"
 
 # LLM API
 GEMINI_API_KEY = config("GEMINI_API_KEY")
