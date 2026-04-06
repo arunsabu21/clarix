@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "authentication",
     "rest_framework_simplejwt.token_blacklist",
     "chat",
+    "channels",
 ]
 
 MIDDLEWARE = [
@@ -168,3 +169,15 @@ DEFAULT_FROM_EMAIL = "Clarix <noreply@clarix.com>"
 # LLM API
 GEMINI_API_KEY = config("GEMINI_API_KEY")
 GROQ_API_KEY = config("GROQ_API_KEY")
+
+# Channels
+ASGI_APPLICATION = "core.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    }
+}
