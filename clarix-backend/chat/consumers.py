@@ -1,0 +1,164 @@
+import json
+from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.db import database_sync_to_async
+from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework_simplejwt.exceptions import TokenError
+from django.contrib.auth import get_user_model
+from .models import Conversation, Message
+from .services.llm import chat_with_gemini, chat_with_groq
+from urllib.parse import parse_qs
+import asyncio
+
+User = get_user_model()
+
+
+class ChatConsumer(AsyncWebsocketConsumer):
+
+    async def connect(self):
+        # Authenticate via JWT from query string
+        query_string = self.scope["query_string"].decode()
+        params = parse_qs(query_string)
+        token = params.get("token", [None])[0]
+        
+        if not token:
+            await self.close(code=4001)
+            return
+
+        try:
+            access_token = AccessToken(token)
+            user_id = access_token.get("user_id")
+            self.user = await self.get_user(user_id)
+        except (TokenError, Exception) as e:
+            await self.close(code=4001)
+            return
+
+        if not self.user or not self.user.is_active:
+            await self.close(code=4001)
+            return
+
+        await self.accept()
+        
+    async def ping(self):
+        while self.keep_alive:
+            try:
+                await self.send(json.dumps({"type": "ping"}))
+                await asyncio.sleep(30)
+            except:
+                break
+
+    async def disconnect(self, close_code):
+        self.keep_alive = False
+
+    async def receive(self, text_data):
+        try:
+            data = json.loads(text_data)
+            user_message = data.get("message", "").strip()
+            model = data.get("model", "gemini")
+            conversation_id = data.get("conversation_id")
+
+            if not user_message:
+                return
+
+            # Get or create conversation
+            conversation = await self.get_or_create_conversation(conversation_id)
+
+            # Save user message
+            await self.save_message(conversation, "user", user_message)
+
+            # Send typing indicator
+            await self.send(json.dumps({"type": "typing"}))
+
+            # Build History
+            history = await self.get_history(conversation)
+
+            # Get AI response with streaming
+            ai_response = await self.get_ai_response(history, model)
+
+            # Stream response word by word
+            words = ai_response.split(" ")
+            streamed = ""
+
+            for i, word in enumerate(words):
+                streamed += word + (" " if i < len(words) - 1 else "")
+                await self.send(
+                    json.dumps(
+                        {
+                            "type": "stream",
+                            "content": word + (" " if i < len(words) - 1 else ""),
+                        }
+                    )
+                )
+                await asyncio.sleep(0.04)
+                
+
+            # Save AI message
+            await self.save_message(conversation, "assistant", ai_response)
+
+            # Send done signal
+            await self.send(
+                json.dumps(
+                    {
+                        "type": "done",
+                        "conversation_id": str(conversation.id),
+                        "title": conversation.title or user_message[:60],
+                    }
+                )
+            )
+
+        except Exception as e:
+            await self.send(
+                json.dumps(
+                    {
+                        "type": "error",
+                        "message": "Something went wrong. Please try again.",
+                    }
+                )
+            )
+
+    # DB helpers
+    @database_sync_to_async
+    def get_user(self, user_id):
+        try:
+            return User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return None
+
+    @database_sync_to_async
+    def get_or_create_conversation(self, conversation_id):
+        if conversation_id:
+            try:
+                return Conversation.objects.get(id=conversation_id, user=self.user)
+            except Conversation.DoesNotExist:
+                pass
+        return Conversation.objects.create(user=self.user)
+
+    @database_sync_to_async
+    def get_history(self, conversation):
+        messages = conversation.messages.all().order_by("created_at")
+        return [{"role": m.role, "content": m.content} for m in messages]
+
+    @database_sync_to_async
+    def save_message(self, conversation, role, content):
+        msg = Message.objects.create(
+            conversation=conversation,
+            role=role,
+            content=content,
+        )
+        # Auto title
+        if not conversation.title:
+            msgs = conversation.messages.count()
+            if msgs >= 1:
+                first = conversation.messages.filter(role="user").first()
+                if first:
+                    conversation.title = first.content[:60]
+                    conversation.save()
+        return msg
+
+    @database_sync_to_async
+    def get_ai_response(self, history, model):
+        try:
+            if model == "groq":
+                return chat_with_groq(history)
+            return chat_with_gemini(history)
+        except Exception:
+            return chat_with_groq(history)
