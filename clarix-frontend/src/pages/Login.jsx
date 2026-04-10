@@ -2,8 +2,9 @@ import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useAuthGlobal } from "../context/AuthContext";
-import ClarixLogo from "../components/ClarixLogo";
-import Message from "../components/Alert";
+import Navbar from "../components/common/Navbar";
+import ClarixLogo from "../components/common/ClarixLogo";
+import Message from "../components/common/Alert";
 import "../styles/Login.css";
 
 function Login() {
@@ -103,6 +104,7 @@ function Login() {
 
   return (
     <>
+    <Navbar />
       <Message
         type="error"
         text={globalError}

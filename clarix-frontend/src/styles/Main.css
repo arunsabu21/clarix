@@ -1,0 +1,45 @@
+.loader-overlay {
+  position: fixed;
+  inset: 0;
+  background: #f9f8f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.loader-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.loader-svg {
+  width: 44px;
+  height: 44px;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loader-text {
+  font-size: 13px;
+  color: #888;
+  margin: 0;
+  letter-spacing: 0.3px;
+}
+
+.btn-spinner {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.chat-send-btn {
+  transition: opacity 0.2s;
+}

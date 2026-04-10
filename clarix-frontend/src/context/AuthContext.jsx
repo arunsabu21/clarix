@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { getMe } from "../services/auth";
+import Loader from "../components/common/Loader";
 
 const AuthContext = createContext();
 
@@ -31,20 +32,13 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const handleStorageChange = () => {
       const token = localStorage.getItem("access_token");
-
-      if (!token) {
-        setUser(null);
-      }
+      if (!token) setUser(null);
     };
     window.addEventListener("storage", handleStorageChange);
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-    };
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  const login = (userData) => {
-    setUser(userData);
-  };
+  const login = (userData) => setUser(userData);
 
   const logout = () => {
     localStorage.removeItem("access_token");
@@ -52,6 +46,8 @@ export function AuthProvider({ children }) {
     setUser(null);
     window.location.replace("/login");
   };
+
+  if (loading) return <Loader />;
 
   return (
     <AuthContext.Provider value={{ user, loading, setUser, login, logout }}>
