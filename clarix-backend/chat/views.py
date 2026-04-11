@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from utils.ai_cache import get_cached_ai_response, cache_ai_response
 
 from .models import Conversation, Message
 from .serializers import (
@@ -87,7 +88,13 @@ class SendMessageView(APIView):
 
         # Get AI Response
         try:
-            ai_response = get_ai_response(history, model=model)
+            # Check cache
+            cached = get_cached_ai_response(history, model)
+            if cached:
+                ai_response = cached
+            else:
+                ai_response = get_ai_response(history, model=model)
+                cache_ai_response(history, model, ai_response) # Store in Redis
         except Exception as e:
             return Response(
                 {"error": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE
