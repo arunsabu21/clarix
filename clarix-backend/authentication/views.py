@@ -4,6 +4,8 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from utils.token_cache import blacklist_token
+from utils.user_cache import get_cached_user, invalidate_user_cache
+from django.core.cache import cache
 from django.utils import timezone
 
 from .models import User, OTPCode
@@ -103,6 +105,9 @@ class VerifyOTPView(APIView):
 
         # Get or create user
         user, created = User.objects.get_or_create(email=email)
+        
+        # Cache the user immediately after login
+        cache.set(f"user:{user.id}", user, timeout=60 * 15)
 
         # Issue JWT
         refresh = RefreshToken.for_user(user)
@@ -128,6 +133,7 @@ class LogoutView(APIView):
             
             blacklist_token(str(token["jti"]))
             token.blacklist()
+            invalidate_user_cache(str(request.user.id)) # clear cache on logout
             return Response(
                 {"message": "Logged out successfully."}, status=status.HTTP_200_OK
             )
@@ -141,4 +147,5 @@ class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return Response(UserSerializer(request.user).data)
+        user = get_cached_user(str(request.user.id)) # Redis first, DB fallback
+        return Response(UserSerializer(user).data)
