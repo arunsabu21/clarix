@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
+from utils.token_cache import blacklist_token
 from django.utils import timezone
 
 from .models import User, OTPCode
@@ -124,6 +125,8 @@ class LogoutView(APIView):
         try:
             refresh_token = request.data["refresh"]
             token = RefreshToken(refresh_token)
+            
+            blacklist_token(str(token["jti"]))
             token.blacklist()
             return Response(
                 {"message": "Logged out successfully."}, status=status.HTTP_200_OK

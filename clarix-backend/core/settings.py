@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt.token_blacklist",
     "chat",
     "channels",
+    "utils",
 ]
 
 MIDDLEWARE = [
@@ -143,7 +144,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "utils.authentication.CachedJWTAuthentication",
     ),
 }
 
@@ -178,7 +179,22 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [("127.0.0.1", 6379)],
+            "hosts": [config("REDIS_HOST", default="redis://127.0.0.1:6379")],
         },
+    }
+}
+
+# Cache
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": config("REDIS_URL", default="redis://127.0.0.1:6379/1"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "SOCKET_CONNECT_TIMEOUT": 5,
+            "SOCKET_TIMEOUT": 5,
+        },
+        "KEY_PREFIX": "clarix",
+        "TIMEOUT": 300,
     }
 }
