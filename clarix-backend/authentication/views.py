@@ -5,6 +5,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from utils.token_cache import blacklist_token
 from utils.user_cache import get_cached_user, invalidate_user_cache
+from utils.rate_limiter import is_rate_limited, get_rate_limit_key, RATE_LIMITS
 from django.core.cache import cache
 from django.utils import timezone
 
@@ -26,13 +27,12 @@ class RequestOTPView(APIView):
         name = serializer.validated_data.get("name", "")
 
         # Rate Limit - max 3 active OTP per email
-        active_otps = OTPCode.objects.filter(
-            email=email, is_used=False, expires_at__gt=timezone.now()
-        ).count()
-
-        if active_otps >= 3:
+        config = RATE_LIMITS["otp"]
+        key = get_rate_limit_key("otp", email)
+        
+        if is_rate_limited(key, config["limit"], config["window"]):
             return Response(
-                {"error": "Too many OTP requests. Please wait before trying again."},
+                {"error": config["message"]},
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
 
