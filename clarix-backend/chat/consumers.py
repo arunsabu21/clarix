@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from .models import Conversation, Message
 from .services.llm import chat_with_gemini, chat_with_groq
 from urllib.parse import parse_qs
+from utils.rate_limiter import is_rate_limited, get_rate_limit_key, RATE_LIMITS
 import asyncio
 
 User = get_user_model()
@@ -19,7 +20,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         query_string = self.scope["query_string"].decode()
         params = parse_qs(query_string)
         token = params.get("token", [None])[0]
-        
+
         if not token:
             await self.close(code=4001)
             return
@@ -28,7 +29,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             access_token = AccessToken(token)
             user_id = access_token.get("user_id")
             self.user = await self.get_user(user_id)
-        except (TokenError, Exception) as e:
+        except (TokenError, Exception):
             await self.close(code=4001)
             return
 
@@ -37,13 +38,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return
 
         await self.accept()
-        
+
     async def ping(self):
         while self.keep_alive:
             try:
                 await self.send(json.dumps({"type": "ping"}))
                 await asyncio.sleep(30)
-            except:
+            except Exception:
                 break
 
     async def disconnect(self, close_code):
@@ -59,6 +60,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
             if not user_message:
                 return
 
+            wait = await self.check_rate_limit()
+            if wait:
+                config = RATE_LIMITS["ai_message"]
+                message = config["message"].format(wait_time=wait)
+                await self.send(
+                    json.dumps(
+                        {
+                            "type": "error",
+                            "message": message,
+                        }
+                    )
+                )
+                return  # stop — no API call
+
             # Get or create conversation
             conversation = await self.get_or_create_conversation(conversation_id)
 
@@ -71,7 +86,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # Build History
             history = await self.get_history(conversation)
 
-            # Get AI response with streaming
+            # Get AI response
             ai_response = await self.get_ai_response(history, model)
 
             # Stream response word by word
@@ -89,7 +104,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     )
                 )
                 await asyncio.sleep(0.04)
-                
 
             # Save AI message
             await self.save_message(conversation, "assistant", ai_response)
@@ -115,7 +129,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 )
             )
 
-    # DB helpers
+    @database_sync_to_async
+    def check_rate_limit(self):
+        config = RATE_LIMITS["ai_message"]
+        key = get_rate_limit_key("ai_message", str(self.user.id))
+        return is_rate_limited(key, config["limit"], config["window"])
+
+    # ─────────────────────────────────────────
+    # DB HELPERS
+    # ─────────────────────────────────────────
     @database_sync_to_async
     def get_user(self, user_id):
         try:
