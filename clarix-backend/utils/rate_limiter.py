@@ -1,4 +1,17 @@
 from django.core.cache import cache
+import math
+
+def get_wait_time(key: str) -> str:
+    ttl = cache.ttl(key)
+    
+    if ttl <= 0:
+        return "a moment"
+    
+    minutes = math.ceil(ttl / 60)
+    
+    if minutes >= 60:
+        return "1 hour"
+    return f"{minutes} minute{'s' if minutes > 1 else ''}"
 
 
 def is_rate_limited(key: str, limit: int, window: int) -> bool:
@@ -9,7 +22,8 @@ def is_rate_limited(key: str, limit: int, window: int) -> bool:
         return False
 
     if current >= limit:
-        return True
+        wait = get_wait_time(key)
+        return wait
 
     cache.incr(key)
     return False
@@ -37,16 +51,16 @@ RATE_LIMITS = {
     "otp": {
         "limit": 5,
         "window": 60 * 60,
-        "message": "You've reached the maximum number of OTP requests. For your account's security, please wait 1 hour before requesting a new code.",
+        "message": "You've reached the maximum number of OTP requests. For your account's security, please wait {wait_time} before requesting a new code.",
     },
     "ai_message": {
-        "limit": 20,
+        "limit": 6,
         "window": 60 * 60,
-        "message": "Message limit reached. Please wait before sending more.",
+        "message": "You've reached your message limit for this hour. Please wait {wait_time} before sending more messages.",
     },
     "verify_otp": {
         "limit": 10,
         "window": 60 * 60,
-        "message": "Too many verification attempts from your device. Please wait 1 hour before trying again.",
+        "message": "Too many verification attempts from your device. Please wait {wait_time} before trying again.",
     },
 }

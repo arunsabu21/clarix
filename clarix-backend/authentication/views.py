@@ -26,14 +26,16 @@ class RequestOTPView(APIView):
         email = serializer.validated_data["email"]
         name = serializer.validated_data.get("name", "")
 
-        # Rate Limit - max 3 active OTP per email
+        # Rate Limit - Redis based, max 5 OTP requests per hour email
         config = RATE_LIMITS["otp"]
         key = get_rate_limit_key("otp", email)
+        wait = is_rate_limited(key, config["limit"], config["window"])
         
-        if is_rate_limited(key, config["limit"], config["window"]):
+        if wait:
+            message = config["message"].format(wait_time=wait)
             return Response(
-                {"error": config["message"]},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
+                {"error": message},
+                status=status.HTTP_429_TOO_MANY_REQUESTS
             )
 
         # Invalidate old OTPs
@@ -62,27 +64,28 @@ class VerifyOTPView(APIView):
         ip = get_client_ip(request)
         config = RATE_LIMITS["verify_otp"]
         key = get_rate_limit_key("verify_otp", ip)
+        wait = is_rate_limited(key, config["limit"], config["window"])
         
-        if is_rate_limited(key, config["limit"], config["window"]):
+        if wait:
+            message = config["message"].format(wait_time=wait)
             return Response(
-                {"error": config["message"]},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
+                {"error": message}, status=status.HTTP_429_TOO_MANY_REQUESTS
             )
-
+        
         email = serializer.validated_data["email"]
         otp = serializer.validated_data["otp"]
 
         # Get latest unused OTP
-        try:
-            otp_obj = (
-                OTPCode.objects.filter(email=email, is_used=False)
-                .order_by("-created_at")
-                .first()
-            )
-
-        except OTPCode.DoesNotExist:
+        otp_obj = (
+            OTPCode.objects.filter(email=email, is_used=False)
+            .order_by("-created_at")
+            .first()
+        )
+        
+        if not otp_obj:
             return Response(
-                {"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "Invalid OTP code."},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         # Check attempts

@@ -63,13 +63,14 @@ class SendMessageView(APIView):
         
         config = RATE_LIMITS["ai_message"]
         key = get_rate_limit_key("ai_message", str(request.user.id))
+        wait = is_rate_limited(key, config["limit"], config["window"])
         
-        if is_rate_limited(key, config["limit"], config["window"]):
+        if wait:
+            message = config["message"].format(wait_time=wait)
             return Response(
-                {"error": config["message"]},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
+                {"error": message}, status=status.HTTP_429_TOO_MANY_REQUESTS
             )
-
+        
         # Get or create conversation
         if conversation_id:
             try:
