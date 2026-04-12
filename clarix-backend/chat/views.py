@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from utils.ai_cache import get_cached_ai_response, cache_ai_response
+from utils.rate_limiter import is_rate_limited, get_rate_limit_key, RATE_LIMITS
 
 from .models import Conversation, Message
 from .serializers import (
@@ -59,6 +60,15 @@ class SendMessageView(APIView):
 
         user_message = serializer.validated_data["message"]
         conversation_id = serializer.validated_data.get("conversation_id")
+        
+        config = RATE_LIMITS["ai_message"]
+        key = get_rate_limit_key("ai_message", str(request.user.id))
+        
+        if is_rate_limited(key, config["limit"], config["window"]):
+            return Response(
+                {"error": config["message"]},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
 
         # Get or create conversation
         if conversation_id:

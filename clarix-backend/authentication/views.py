@@ -5,7 +5,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from utils.token_cache import blacklist_token
 from utils.user_cache import get_cached_user, invalidate_user_cache
-from utils.rate_limiter import is_rate_limited, get_rate_limit_key, RATE_LIMITS
+from utils.rate_limiter import is_rate_limited, get_rate_limit_key, get_client_ip, RATE_LIMITS
 from django.core.cache import cache
 from django.utils import timezone
 
@@ -58,6 +58,16 @@ class VerifyOTPView(APIView):
         serializer = VerifyOTPSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        ip = get_client_ip(request)
+        config = RATE_LIMITS["verify_otp"]
+        key = get_rate_limit_key("verify_otp", ip)
+        
+        if is_rate_limited(key, config["limit"], config["window"]):
+            return Response(
+                {"error": config["message"]},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
 
         email = serializer.validated_data["email"]
         otp = serializer.validated_data["otp"]

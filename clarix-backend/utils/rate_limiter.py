@@ -24,6 +24,14 @@ def get_remaining_requests(key: str, limit: int) -> int:
     return max(0, limit - current)
 
 
+def get_client_ip(request) -> str:
+    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+    if x_forwarded_for:
+        return x_forwarded_for.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR", "unknown")
+
+
+
 # RATE LIMIT CONFIGS
 RATE_LIMITS = {
     "otp": {
@@ -36,9 +44,9 @@ RATE_LIMITS = {
         "window": 60 * 60,
         "message": "Message limit reached. Please wait before sending more.",
     },
-    "login": {
+    "verify_otp": {
         "limit": 10,
         "window": 60 * 60,
-        "message": "Too many login attempts. Please try again later.",
+        "message": "Too many verification attempts from your device. Please wait 1 hour before trying again.",
     },
 }
