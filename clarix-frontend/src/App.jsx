@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { Routes, Route, useSearchParams } from "react-router-dom";
 import MainLayout from "./layouts/MainLayout";
+import Landing from "./pages/Home";
 import Chat from "./pages/Chat";
 import Login from "./pages/Login";
 import ProtectedRoute from "./routes/ProtectedRoute";
@@ -34,9 +35,11 @@ function ChatWrapper() {
 function App() {
   return (
     <Routes>
+      <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
+
       <Route
-        path="/"
+        path="/chat"
         element={
           <ProtectedRoute>
             <ChatWrapper />

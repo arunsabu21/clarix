@@ -38,7 +38,6 @@
   line-height: 1.5;
 }
 
-
 .messages {
   display: flex;
   flex-direction: column;
@@ -121,7 +120,7 @@
 }
 
 .change-width {
-  max-width: 752px
+  max-width: 752px;
 }
 
 .chat-input-wrapper:focus-within {
@@ -577,8 +576,14 @@
 }
 
 @keyframes dropUp {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .model-option {
@@ -596,7 +601,9 @@
   text-align: left;
 }
 
-.model-option:hover { background: #f9f7f4; }
+.model-option:hover {
+  background: #f9f7f4;
+}
 
 .model-option.active {
   background: #f5f2ee;
@@ -607,8 +614,64 @@
 .model-badge {
   font-size: 10px;
   font-weight: 500;
-  color: #E8A87C;
+  color: #e8a87c;
   background: #fff5ed;
   border-radius: 5px;
   padding: 2px 7px;
+}
+
+.rate-limit-banner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  background: #fff8f0;
+  border: 1px solid #f0d9b5;
+  border-bottom: none;               
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: 12px 16px;
+  width: 100%;
+  max-width: 672px;                   
+  margin: 12px auto 0;                
+  box-sizing: border-box;
+  animation: fadeInUp 0.2s ease;
+}
+
+.rate-limit-banner span {
+  font-size: 13px;
+  color: #92400e;
+  line-height: 1.5;
+  flex: 1;
+}
+
+.rate-limit-banner button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #92400e;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+  padding: 0;
+}
+
+.rate-limit-banner button:hover {
+  opacity: 1;
+}
+
+.chat-input-wrapper.has-banner {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  margin-top: 0;                      
+}
+
+.rate-limit-banner.change-width {
+  max-width: 752px; 
+}
+
+.chat-textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

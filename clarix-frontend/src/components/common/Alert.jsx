@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { AlertCircle, AlertTriangle, CheckCircle2, Info } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from "lucide-react";
 
 const icons = {
   error: AlertCircle,
@@ -9,10 +9,10 @@ const icons = {
 };
 
 const styles = {
-  error: { color: "#fff", bg: "#c0392b", border: "#c0392b" },
-  warning: { color: "#fff", bg: "#b45309", border: "#b45309" },
-  success: { color: "#fff", bg: "#166534", border: "#166534" },
-  info: {color: "#fff", bg: "#282c3f", border: "#282c3f"},
+  error: { color: "#991b1b", bg: "#fef2f2", border: "#fecaca" },
+  warning: { color: "#92400e", bg: "#fffbeb", border: "#fde68a" },
+  success: { color: "#166534", bg: "#f0fdf4", border: "#bbf7d0" },
+  info: {color: "#1e40af", bg: "#eff6ff", border: "#bfdbfe"},
 };
 
 function Message({ type = "error", text, onClose }) {
@@ -24,7 +24,7 @@ function Message({ type = "error", text, onClose }) {
 
     const timer = setTimeout(() => {
       onClose && onClose();
-    }, 4000);
+    }, 5000);
 
     return () => clearTimeout(timer);
   }, [text, onClose]);
@@ -43,6 +43,9 @@ function Message({ type = "error", text, onClose }) {
       >
         <Icon size={16} strokeWidth={3} />
         <span>{text}</span>
+        <button className="msg-close" onClick={onClose}>
+          <X size={14} strokeWidth={2.5} />
+        </button>
       </div>
     </div>
   );

@@ -26,6 +26,7 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
   const [showUpload, setShowUpload] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [model, setModel] = useState("gemini");
+  const [rateLimitError, setRateLimitError] = useState("");
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
   const streamRef = useRef("");
@@ -79,7 +80,11 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
     }
 
     if (data.type === "error") {
-      setError(data.message);
+      if (data.message?.includes("message limit") || data.message?.includes("wait")) {
+        setRateLimitError(data.message);
+      } else {
+        setError(data.message);
+      }
       setIsTyping(false);
       setStreamingText("");
     }
@@ -162,7 +167,7 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
   };
 
   const sendMessage = () => {
-    if ((!input.trim() && !selectedImage) || isTyping) return;
+    if ((!input.trim() && !selectedImage) || isTyping || rateLimitError) return;
 
     const userText = input.trim();
     setInput("");
@@ -226,8 +231,16 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
             </div>
           )}
 
+          {rateLimitError && (
+            <div className={`rate-limit-banner ${messages.length > 0 ? "change-width" : ""}`}>
+              <span>{rateLimitError}
+                
+              </span>
+            </div>
+          )}
+
           <div
-            className={`chat-input-wrapper ${messages.length > 0 ? "change-width" : ""}`}
+            className={`chat-input-wrapper ${messages.length > 0 ? "change-width" : ""} ${rateLimitError ? "has-banner": ""}`}
           >
             {selectedImage && (
               <div className="image-preview-strip">
@@ -247,7 +260,7 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              disabled={isTyping}
+              disabled={isTyping || !!rateLimitError}
               rows={1}
             />
 
@@ -264,10 +277,10 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
                 <button
                   onClick={sendMessage}
                   className="chat-send-btn"
-                  disabled={isTyping || !hasContent}
+                  disabled={isTyping || !hasContent || !!rateLimitError}
                   style={{
-                    opacity: hasContent ? 1 : 0,
-                    pointerEvents: hasContent ? "auto" : "none",
+                    opacity: hasContent && !rateLimitError ? 1 : 0,
+                    pointerEvents: hasContent && !rateLimitError ? "auto" : "none",
                   }}
                 >
                   {isTyping ? <ButtonSpinner /> : <ArrowUp size={18} />}

@@ -14,8 +14,12 @@ export function useAuth() {
       setLoading(true);
       await requestOTP(email);
       return true;
-    } catch {
-      setGlobalError("Failed to send OTP. Try again.");
+    } catch (err) {
+      const message = 
+      err?.response?.data?.error ||
+      err?.response?.data?.message ||
+      "Unable to send OTP to this email address. Please check your internet connection and try again."
+      setGlobalError(message);
       return false;
     } finally {
       setLoading(false);
@@ -29,8 +33,11 @@ export function useAuth() {
       setLoading(true);
       const res = await verifyOTP(email, otp);
       return res.data;
-    } catch {
-      setGlobalError("Incorrect code. Please try again.");
+    } catch (err) {
+      const message = 
+      err?.response?.data?.error ||
+      err?.response?.data?.message ||
+      "Incorrect code. Please try again."
       return null;
     } finally {
       setLoading(false);

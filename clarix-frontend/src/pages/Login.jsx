@@ -5,6 +5,7 @@ import { useAuthGlobal } from "../context/AuthContext";
 import Navbar from "../components/common/Navbar";
 import ClarixLogo from "../components/common/ClarixLogo";
 import Message from "../components/common/Alert";
+import AuthSuccess from "../components/auth/AuthSuccess";
 import "../styles/Login.css";
 
 function Login() {
@@ -42,6 +43,16 @@ function Login() {
       handleVerifyOTP(code);
     }
   }, [otp, step]);
+
+  useEffect(() => {
+    if (step === "success") {
+      const timer = setTimeout(() => {
+        navigate("/chat");
+      }, 1800);
+
+      return () => clearTimeout(timer);
+    }
+  }, [step, navigate]);
 
   const handleRequestOTP = async () => {
     clearErrors();
@@ -98,7 +109,7 @@ function Login() {
       localStorage.setItem("access_token", data.access);
       localStorage.setItem("refresh_token", data.refresh);
       setUser(data.user);
-      navigate("/");
+      setStep("success");
     }
   };
 
@@ -106,7 +117,7 @@ function Login() {
     <>
     <Navbar />
       <Message
-        type="error"
+        type="warning"
         text={globalError}
         onClose={() => setGlobalError("")}
       />
@@ -211,6 +222,8 @@ function Login() {
               </button>
             </div>
           )}
+
+          {step === "success" && <AuthSuccess email={email}/>}
         </div>
       </div>
     </>
