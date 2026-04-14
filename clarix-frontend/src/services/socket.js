@@ -58,3 +58,8 @@ export const disconnectSocket = () => {
         socket = null;
     }
 };
+
+export const stopSocketMessage = () => {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    socket.send(JSON.stringify({ type: "stop" }));
+};

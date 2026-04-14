@@ -1,19 +1,29 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuthGlobal } from "../context/AuthContext";
 import Message from "../components/common/Alert";
-import { ArrowUp, Paperclip, X } from "lucide-react";
+import {
+  ArrowUp,
+  Paperclip,
+  X,
+  Square,
+  ChevronDown,
+  Trash2,
+} from "lucide-react";
 import ClarixIcon from "../components/common/ClarixIcon";
 import ButtonSpinner from "../components/chat/ButtonSpinner";
 import ImageUploadModal from "../components/chat/ImageUploadModal";
 import ModelSwitcher from "../components/chat/ModelSwitcher";
 import ReactMarkdown from "react-markdown";
-import { getConversation } from "../services/chat";
+import remarkGfm from "remark-gfm";
+import { getConversation, deleteConversation } from "../services/chat";
 import {
   connectSocket,
   sendSocketMessage,
   disconnectSocket,
+  stopSocketMessage,
 } from "../services/socket";
 import "../styles/Chat.css";
+import "../styles/ChatV2.css";
 
 function Chat({ conversationId, setConversationId, onConversationCreated }) {
   const { user } = useAuthGlobal();
@@ -27,6 +37,10 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
   const [selectedImage, setSelectedImage] = useState(null);
   const [model, setModel] = useState("gemini");
   const [rateLimitError, setRateLimitError] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [conversationTitle, setConversationTitle] = useState("");
+  const [showTitleMenu, setShowTitleMenu] = useState(false);
+
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
   const streamRef = useRef("");
@@ -44,6 +58,7 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
   socketHandlerRef.current = (data) => {
     if (data.type === "typing") {
       setIsTyping(true);
+      setIsStreaming(true);
       streamRef.current = "";
       setMessages((prev) => [...prev, { role: "ai", text: "" }]);
     }
@@ -70,17 +85,23 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
       setStreamingText("");
       streamRef.current = "";
       setIsTyping(false);
+      setIsStreaming(false);
 
       if (!conversationIdRef.current) {
         justCreatedRef.current = true;
         setConversationId(data.conversation_id);
         conversationIdRef.current = data.conversation_id;
+        setConversationTitle(data.title || "New Chat");
         onConversationCreated?.();
       }
     }
 
     if (data.type === "error") {
-      if (data.message?.includes("message limit") || data.message?.includes("wait")) {
+      setIsStreaming(false);
+      if (
+        data.message?.includes("message limit") ||
+        data.message?.includes("wait")
+      ) {
         setRateLimitError(data.message);
       } else {
         setError(data.message);
@@ -112,6 +133,7 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
   useEffect(() => {
     if (!conversationId) {
       setMessages([]);
+      setConversationTitle("");
       return;
     }
 
@@ -121,6 +143,7 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
       return;
     }
 
+    setConversationTitle("");
     loadConversation(conversationId);
   }, [conversationId]);
 
@@ -143,6 +166,7 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
   const loadConversation = async (id) => {
     try {
       const res = await getConversation(id);
+      setConversationTitle(res.data.title?.trim() || "New Chat")
 
       const formatted = res.data.messages.map((m) => ({
         role: m.role === "assistant" ? "ai" : "user",
@@ -156,6 +180,22 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
       });
     } catch {
       setError("Failed to load conversation.");
+    }
+  };
+
+  // Delete Conversation
+  const handleDeleteConversation = async () => {
+    if (!conversationIdRef.current) return;
+    try {
+      await deleteConversation(conversationIdRef.current);
+      setShowTitleMenu(false);
+      setConversationTitle("");
+      onConversationCreated?.();
+      setConversationId(null);
+      conversationIdRef.current = null;
+      setMessages([]);
+    } catch {
+      setError("Failed to delete conversation.");
     }
   };
 
@@ -196,6 +236,44 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
       <Message type="error" text={error} onClose={() => setError("")} />
 
       <div className="chat">
+        {conversationId && conversationTitle && (
+          <div className="chat-title-bar">
+            <div className="chat-title-inner">
+              <span className="chat-title-text">{conversationTitle}</span>
+              <button
+                className="chat-title-chevron"
+                onClick={() => setShowTitleMenu(!showTitleMenu)}
+              >
+                <ChevronDown
+                  size={15}
+                  style={{
+                    transform: showTitleMenu
+                      ? "rotate(180deg)"
+                      : "rotate(0deg)",
+                    transition: "transform 0.2s ease",
+                  }}
+                />
+              </button>
+
+              {showTitleMenu && (
+                <>
+                  <div
+                    className="title-menu-backdrop"
+                    onClick={() => setShowTitleMenu(false)}
+                  />
+                  <div className="chat-title-menu">
+                    <button
+                      className="chat-title-menu-item danger"
+                      onClick={handleDeleteConversation}
+                    >
+                      <Trash2 size={13} /> Delete conversation
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
         <div
           className={`chat-content ${messages.length > 0 || streamingText ? "has-messages" : ""}`}
         >
@@ -213,14 +291,13 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
               {messages.map((m, i) => (
                 <div key={i} className={`message ${m.role}`}>
                   {m.role === "ai" ? (
-                    <ReactMarkdown>{m.text}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
                   ) : (
                     m.text
                   )}
                 </div>
               ))}
 
-            
               {isTyping && (
                 <div className="message ai typing-logo">
                   <ClarixIcon size={20} />
@@ -232,15 +309,15 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
           )}
 
           {rateLimitError && (
-            <div className={`rate-limit-banner ${messages.length > 0 ? "change-width" : ""}`}>
-              <span>{rateLimitError}
-                
-              </span>
+            <div
+              className={`rate-limit-banner ${messages.length > 0 ? "change-width" : ""}`}
+            >
+              <span>{rateLimitError}</span>
             </div>
           )}
 
           <div
-            className={`chat-input-wrapper ${messages.length > 0 ? "change-width" : ""} ${rateLimitError ? "has-banner": ""}`}
+            className={`chat-input-wrapper ${messages.length > 0 ? "change-width" : ""} ${rateLimitError ? "has-banner" : ""}`}
           >
             {selectedImage && (
               <div className="image-preview-strip">
@@ -260,7 +337,7 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              disabled={isTyping || !!rateLimitError}
+              disabled={isTyping || isStreaming || !!rateLimitError}
               rows={1}
             />
 
@@ -274,19 +351,30 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
 
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <ModelSwitcher selected={model} onChange={setModel} />
-                <button
-                  onClick={sendMessage}
-                  className="chat-send-btn"
-                  disabled={isTyping || !hasContent || !!rateLimitError}
-                  style={{
-                    opacity: hasContent && !rateLimitError ? 1 : 0,
-                    pointerEvents: hasContent && !rateLimitError ? "auto" : "none",
-                  }}
-                >
-                  {isTyping ? <ButtonSpinner /> : <ArrowUp size={18} />}
-                </button>
+                {isStreaming ? (
+                  <button onClick={stopSocketMessage} className="chat-stop-btn">
+                    <Square size={14} fill="currentColor" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={sendMessage}
+                    className="chat-send-btn"
+                    disabled={!hasContent || !!rateLimitError}
+                    style={{
+                      opacity: hasContent && !rateLimitError ? 1 : 0,
+                      pointerEvents:
+                        hasContent && !rateLimitError ? "auto" : "none",
+                    }}
+                  >
+                    <ArrowUp size={16} />
+                  </button>
+                )}
               </div>
             </div>
+          </div>
+
+          <div role="note" className="responsive-note">
+            Clarix is AI and can make mistakes. Please double-check responses.
           </div>
 
           {showUpload && (
