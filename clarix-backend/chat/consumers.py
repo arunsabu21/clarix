@@ -37,6 +37,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.close(code=4001)
             return
 
+        self.stop_streaming = False
+        self.streaming_task = None
+        self.keep_alive = True
         await self.accept()
 
     async def ping(self):
@@ -53,6 +56,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         try:
             data = json.loads(text_data)
+
+            if data.get("type") == "stop":
+                self.stop_streaming = True
+                if self.streaming_task:
+                    self.streaming_task.cancel()
+                return
+            
+            self.stop_streaming = False
             user_message = data.get("message", "").strip()
             model = data.get("model", "gemini")
             conversation_id = data.get("conversation_id")
@@ -88,46 +99,43 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             # Get AI response
             ai_response = await self.get_ai_response(history, model)
+            
+            self.streaming_task = asyncio.ensure_future(
+                self.stream_response(ai_response, conversation, user_message)
+            )
+            
+        except Exception:
+            await self.send(json.dumps({
+                "type": "error",
+                "message": "Something went wrong. Please try again.",
+            }))
 
-            # Stream response word by word
+    async def stream_response(self, ai_response, conversation, user_message):
+        streamed = ""
+        try:
             words = ai_response.split(" ")
-            streamed = ""
-
+            
             for i, word in enumerate(words):
                 streamed += word + (" " if i < len(words) - 1 else "")
-                await self.send(
-                    json.dumps(
-                        {
-                            "type": "stream",
-                            "content": word + (" " if i < len(words) - 1 else ""),
-                        }
-                    )
-                )
+                await self.send(json.dumps({
+                    "type": "stream",
+                    "content": word + (" " if i < len(words) - 1 else ""),
+                }))
                 await asyncio.sleep(0.04)
-
-            # Save AI message
-            await self.save_message(conversation, "assistant", ai_response)
-
-            # Send done signal
-            await self.send(
-                json.dumps(
-                    {
-                        "type": "done",
-                        "conversation_id": str(conversation.id),
-                        "title": conversation.title or user_message[:60],
-                    }
-                )
-            )
-
-        except Exception as e:
-            await self.send(
-                json.dumps(
-                    {
-                        "type": "error",
-                        "message": "Something went wrong. Please try again.",
-                    }
-                )
-            )
+                
+        except asyncio.CancelledError:
+            pass
+        
+        finally:
+            if streamed:
+                await self.save_message(conversation, "assistant", streamed)
+                
+            await self.send(json.dumps({
+                "type": "done",
+                "conversation_id": str(conversation.id),
+                "title": conversation.title or user_message[:60],
+            }))
+            self.streaming_task = None
 
     @database_sync_to_async
     def check_rate_limit(self):
