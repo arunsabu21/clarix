@@ -5,7 +5,7 @@ from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework_simplejwt.exceptions import TokenError
 from django.contrib.auth import get_user_model
 from .models import Conversation, Message
-from .services.llm import chat_with_gemini, chat_with_groq
+from .services.llm import get_ai_response
 from urllib.parse import parse_qs
 from utils.rate_limiter import is_rate_limited, get_rate_limit_key, RATE_LIMITS
 import asyncio
@@ -62,13 +62,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 if self.streaming_task:
                     self.streaming_task.cancel()
                 return
-            
+
             self.stop_streaming = False
             user_message = data.get("message", "").strip()
             model = data.get("model", "gemini")
             conversation_id = data.get("conversation_id")
+            image_data = data.get("image_data")
+            image_mime = data.get("image_mime")
 
-            if not user_message:
+            if not user_message and not image_data:
                 return
 
             wait = await self.check_rate_limit()
@@ -98,43 +100,57 @@ class ChatConsumer(AsyncWebsocketConsumer):
             history = await self.get_history(conversation)
 
             # Get AI response
-            ai_response = await self.get_ai_response(history, model)
-            
+            ai_response = await self.get_ai_response(
+                history, model, image_data, image_mime
+            )
+
             self.streaming_task = asyncio.ensure_future(
                 self.stream_response(ai_response, conversation, user_message)
             )
-            
+
         except Exception:
-            await self.send(json.dumps({
-                "type": "error",
-                "message": "Something went wrong. Please try again.",
-            }))
+            await self.send(
+                json.dumps(
+                    {
+                        "type": "error",
+                        "message": "Something went wrong. Please try again.",
+                    }
+                )
+            )
 
     async def stream_response(self, ai_response, conversation, user_message):
         streamed = ""
         try:
             words = ai_response.split(" ")
-            
+
             for i, word in enumerate(words):
                 streamed += word + (" " if i < len(words) - 1 else "")
-                await self.send(json.dumps({
-                    "type": "stream",
-                    "content": word + (" " if i < len(words) - 1 else ""),
-                }))
+                await self.send(
+                    json.dumps(
+                        {
+                            "type": "stream",
+                            "content": word + (" " if i < len(words) - 1 else ""),
+                        }
+                    )
+                )
                 await asyncio.sleep(0.04)
-                
+
         except asyncio.CancelledError:
             pass
-        
+
         finally:
             if streamed:
                 await self.save_message(conversation, "assistant", streamed)
-                
-            await self.send(json.dumps({
-                "type": "done",
-                "conversation_id": str(conversation.id),
-                "title": conversation.title or user_message[:60],
-            }))
+
+            await self.send(
+                json.dumps(
+                    {
+                        "type": "done",
+                        "conversation_id": str(conversation.id),
+                        "title": conversation.title or user_message[:60],
+                    }
+                )
+            )
             self.streaming_task = None
 
     @database_sync_to_async
@@ -185,10 +201,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return msg
 
     @database_sync_to_async
-    def get_ai_response(self, history, model):
-        try:
-            if model == "groq":
-                return chat_with_groq(history)
-            return chat_with_gemini(history)
-        except Exception:
-            return chat_with_groq(history)
+    def get_ai_response(self, history, model, image_data=None, image_mime=None):
+        from .services.llm import get_ai_response as llm_response
+        return llm_response(history, model, image_data, image_mime)

@@ -171,6 +171,8 @@ DEFAULT_FROM_EMAIL = "Clarix <noreply@clarix.com>"
 # LLM API
 GEMINI_API_KEY = config("GEMINI_API_KEY")
 GROQ_API_KEY = config("GROQ_API_KEY")
+OPENROUTER_API_KEY = config("OPENROUTER_API_KEY")
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 # Channels
 ASGI_APPLICATION = "core.asgi.application"
