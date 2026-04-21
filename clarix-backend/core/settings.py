@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     "chat",
     "channels",
     "utils",
+    "upgrade",
 ]
 
 MIDDLEWARE = [
@@ -199,4 +200,18 @@ CACHES = {
         "KEY_PREFIX": "clarix",
         "TIMEOUT": 300,
     }
+}
+
+# Billing
+STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY")
+STRIPE_PUBLISHABLE_KEY = config("STRIPE_PUBLISHABLE_KEY")
+STRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET")
+FRONTEND_URL = config("FRONTEND_URL")
+
+# Stripe Price ID
+STRIPE_PRICES = {
+    "pro_monthly": config("STRIPE_PRO_MONTHLY_PRICE_ID"),
+    "pro_yearly": config("STRIPE_PRO_YEARLY_PRICE_ID"),
+    "max_monthly": config("STRIPE_MAX_MONTHLY_PRICE_ID"),
+    "max_yearly": config("STRIPE_MAX_YEARLY_PRICE_ID"),
 }
