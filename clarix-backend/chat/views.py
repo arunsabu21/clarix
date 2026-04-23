@@ -3,7 +3,12 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from utils.ai_cache import get_cached_ai_response, cache_ai_response
-from utils.rate_limiter import is_rate_limited, get_rate_limit_key, RATE_LIMITS
+from utils.rate_limiter import (
+    is_rate_limited,
+    get_rate_limit_key,
+    get_rate_limits_for_user,
+    RATE_LIMITS,
+)
 
 from .models import Conversation, Message
 from .serializers import (
@@ -60,17 +65,17 @@ class SendMessageView(APIView):
 
         user_message = serializer.validated_data["message"]
         conversation_id = serializer.validated_data.get("conversation_id")
-        
-        config = RATE_LIMITS["ai_message"]
+
+        config = get_rate_limits_for_user(request.user)
         key = get_rate_limit_key("ai_message", str(request.user.id))
         wait = is_rate_limited(key, config["limit"], config["window"])
-        
+
         if wait:
             message = config["message"].format(wait_time=wait)
             return Response(
                 {"error": message}, status=status.HTTP_429_TOO_MANY_REQUESTS
             )
-        
+
         # Get or create conversation
         if conversation_id:
             try:
@@ -94,8 +99,8 @@ class SendMessageView(APIView):
 
         # Build message history for LLM
         history = list(conversation.messages.values("role", "content"))
-        
-        model = request.data.get('model', 'gemini')
+
+        model = request.data.get("model", "gemini")
 
         # Get AI Response
         try:
@@ -105,7 +110,7 @@ class SendMessageView(APIView):
                 ai_response = cached
             else:
                 ai_response = get_ai_response(history, model=model)
-                cache_ai_response(history, model, ai_response) # Store in Redis
+                cache_ai_response(history, model, ai_response)  # Store in Redis
         except Exception as e:
             return Response(
                 {"error": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE

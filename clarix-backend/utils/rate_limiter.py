@@ -45,6 +45,23 @@ def get_client_ip(request) -> str:
     return request.META.get("REMOTE_ADDR", "unknown")
 
 
+def get_rate_limits_for_user(user) -> dict:
+    try:
+        from upgrade.models import Subscription, Plan
+        sub = Subscription.objects.get(user=user)
+        
+        if sub.is_active and sub.plan in [Plan.PRO, Plan.MAX]:
+            return {
+                "limit": 10000,
+                "window": 60 * 60,
+                "message": "",
+            }
+    except Exception:
+        pass
+    
+    return RATE_LIMITS["ai_message"]
+
+
 
 # RATE LIMIT CONFIGS
 RATE_LIMITS = {

@@ -10,6 +10,7 @@ from django.utils.decorators import method_decorator
 from .models import Subscription, Invoice, Plan
 
 
+
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
@@ -51,8 +52,8 @@ class CheckoutView(APIView):
                 payment_method_types=["card"],
                 mode="subscription",
                 line_items=[{"price": price_id, "quantity": 1}],
-                success_url=f"{settings.FRONTEND_URL}/billing/success?session_id={{CHECKOUT_SESSION_ID}}",
-                cancel_url=f"{settings.FRONTEND_URL}/pricing",
+                success_url=f"{settings.FRONTEND_URL}/upgrade/success?session_id={{CHECKOUT_SESSION_ID}}",
+                cancel_url=f"{settings.FRONTEND_URL}/upgrade",
                 metadata={
                     "user_id": str(request.user.id),
                     "plan": plan,
@@ -146,6 +147,8 @@ class WebhookView(APIView):
                 {"error": "Invalid signature."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
 
         event_type = event["type"]
         data = event["data"]["object"]
@@ -175,49 +178,68 @@ class WebhookView(APIView):
 
 # Webhook Handlers
 def _handle_checkout_completed(session):
-    user_id = session.get("metadata", {}).get("user_id")
-    plan = session.get("metadata", {}).get("plan", "pro")
-
-    if not user_id:
-        return
-
     try:
+        metadata = session.metadata
+        user_id = metadata["user_id"] if metadata and "user_id" in metadata else None
+        plan = metadata["plan"] if metadata and "plan" in metadata else "pro"
+        
+        
+        if not user_id:
+            print("No user_id in metadata")
+            return
+        
         from authentication.models import User
-
         user = User.objects.get(id=user_id)
         sub, _ = Subscription.objects.get_or_create(user=user)
-
+        
         sub.plan = plan
         sub.is_active = True
-        sub.stripe_subscription_id = session.get("subscription")
+        sub.stripe_subscription_id = session.subscription
         sub.save(update_fields=["plan", "is_active", "stripe_subscription_id"])
-
+        
     except Exception as e:
         print(f"Webhook error (checkout): {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def _handle_subscription_updated(subscription):
     try:
-        sub = Subscription.objects.get(stripe_subscription_id=subscription["id"])
+        sub = Subscription.objects.get(stripe_subscription_id=subscription.id)
 
-        sub.is_active = subscription["status"] == "active"
-        sub.cancel_at_period_end = subscription.get("cancel_at_period_end", False)
+        sub.is_active = subscription.status in ["active", "trailing"]
+        sub.cancel_at_period_end = getattr(subscription, "cancel_at_period_end", False)
 
-        period_end = subscription.get("current_period_end")
-
-        if not period_end:
+        period_end = getattr(subscription, "current_period_end", None)
+        
+        if period_end:
             sub.current_period_end = timezone.datetime.fromtimestamp(
                 period_end, tz=timezone.utc
             )
+            
+        period_start = getattr(subscription, "current_period_start", None)
+        
+        if period_start:
+            sub.current_period_start = timezone.datetime.fromtimestamp(
+                period_start, tz=timezone.utc
+            )
         sub.save()
-
+        
+        if getattr(subscription, "cancel_at_period_end", False):
+            print(f"Subscription updated: {sub.user.email} - cancel_at_end={sub.cancel_at_period_end}")
+            
     except Subscription.DoesNotExist:
-        print(f"Subscription not found: {subscription['id']}")
+        print(f"Subscription not found: {subscription.id}")
+        
+    except Exception as e:
+        print(f"Subscription update error: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def _handle_subscription_deleted(subscription):
     try:
-        sub = Subscription.objects.get(stripe_subscription_id=subscription["id"])
+        sub = Subscription.objects.get(stripe_subscription_id=subscription.id)
         sub.plan = Plan.FREE
         sub.is_active = True
         sub.stripe_subscription_id = None
@@ -230,17 +252,17 @@ def _handle_subscription_deleted(subscription):
 
 def _handle_invoice_paid(invoice):
     try:
-        customer_id = invoice.get("customer")
+        customer_id = invoice.customer
         sub = Subscription.objects.get(stripe_customer_id=customer_id)
 
         Invoice.objects.get_or_create(
-            stripe_invoice_id=invoice["id"],
+            stripe_invoice_id=invoice.id,
             defaults={
                 "user": sub.user,
-                "amount_paid": invoice.get("amount_paid", 0),
-                "currency": invoice.get("currency", "usd"),
-                "status": invoice.get("status", "paid"),
-                "invoice_pdf": invoice.get("invoice_pdf"),
+                "amount_paid": invoice.amount_paid,
+                "currency": invoice.currency,
+                "status": invoice.status,
+                "invoice_pdf": invoice.invoice_pdf,
             },
         )
     except Subscription.DoesNotExist:
@@ -248,5 +270,5 @@ def _handle_invoice_paid(invoice):
 
 
 def _handle_payment_failed(invoice):
-    customer_id = invoice.get("customer")
+    customer_id = invoice.customer
     print(f"Payment failed for customer: {customer_id}")

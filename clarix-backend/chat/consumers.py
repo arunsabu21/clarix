@@ -7,7 +7,12 @@ from django.contrib.auth import get_user_model
 from .models import Conversation, Message
 from .services.llm import get_ai_response
 from urllib.parse import parse_qs
-from utils.rate_limiter import is_rate_limited, get_rate_limit_key, RATE_LIMITS
+from utils.rate_limiter import (
+    is_rate_limited,
+    get_rate_limit_key,
+    get_rate_limits_for_user,
+    RATE_LIMITS,
+)
 import asyncio
 
 User = get_user_model()
@@ -155,7 +160,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def check_rate_limit(self):
-        config = RATE_LIMITS["ai_message"]
+        config = get_rate_limits_for_user(self.user)
         key = get_rate_limit_key("ai_message", str(self.user.id))
         return is_rate_limited(key, config["limit"], config["window"])
 
@@ -203,4 +208,5 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_ai_response(self, history, model, image_data=None, image_mime=None):
         from .services.llm import get_ai_response as llm_response
+
         return llm_response(history, model, image_data, image_mime)
