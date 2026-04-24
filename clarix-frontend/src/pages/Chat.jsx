@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuthGlobal } from "../context/AuthContext";
 import Message from "../components/common/Alert";
 import {
@@ -8,6 +9,12 @@ import {
   Square,
   ChevronDown,
   Trash2,
+  RotateCcw,
+  Copy,
+  Check,
+  ThumbsUp,
+  ThumbsDown,
+  Ghost,
 } from "lucide-react";
 import ClarixIcon from "../components/common/ClarixIcon";
 import ButtonSpinner from "../components/chat/ButtonSpinner";
@@ -24,8 +31,10 @@ import {
 } from "../services/socket";
 import "../styles/Chat.css";
 import "../styles/ChatV2.css";
+import api from "../services/api";
 
 function Chat({ conversationId, setConversationId, onConversationCreated }) {
+  const navigate = useNavigate();
   const { user } = useAuthGlobal();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -40,6 +49,9 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [conversationTitle, setConversationTitle] = useState("");
   const [showTitleMenu, setShowTitleMenu] = useState(false);
+  const [copiedIndex, setCopiedIndex] = useState(null);
+  const [feedbacks, setFeedbacks] = useState({});
+  const [plan, setPlan] = useState("free");
 
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -47,6 +59,17 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
   const conversationIdRef = useRef(conversationId);
   const socketHandlerRef = useRef(null);
   const justCreatedRef = useRef(false);
+  const ghostRef = useRef(null);
+
+  useEffect(() => {
+    const fetchPlan = async () => {
+      try {
+        const res = await api.get("/billing/status/");
+        setPlan(res.data.plan);
+      } catch {}
+    };
+    fetchPlan();
+  }, []);
 
   useEffect(() => {
     if (user?.email && sessionStorage.getItem("just_logged_in")) {
@@ -102,6 +125,7 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
         data.message?.includes("message limit") ||
         data.message?.includes("wait")
       ) {
+        setError(data.message);
         setRateLimitError(data.message);
       } else {
         setError(data.message);
@@ -166,7 +190,7 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
   const loadConversation = async (id) => {
     try {
       const res = await getConversation(id);
-      setConversationTitle(res.data.title?.trim() || "New Chat")
+      setConversationTitle(res.data.title?.trim() || "New Chat");
 
       const formatted = res.data.messages.map((m) => ({
         role: m.role === "assistant" ? "ai" : "user",
@@ -199,6 +223,41 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
     }
   };
 
+  // Regenerate conversation
+  const handleRegenerate = () => {
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
+    if (!lastUserMsg) return;
+
+    setMessages((prev) => {
+      const updated = [...prev];
+      for (let i = updated.length - 1; i >= 0; i--) {
+        if (updated[i].role === "ai") {
+          updated.splice(i, 1);
+          break;
+        }
+      }
+      return updated;
+    });
+
+    setError("");
+    sendSocketMessage(lastUserMsg.text, conversationIdRef.current, model);
+  };
+
+  // Copy Response
+  const handleCopy = (text, index) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
+  // Feedback
+  const handleFeedback = (index, type) => {
+    setFeedbacks((prev) => ({
+      ...prev,
+      [index]: prev[index] === type ? null : type,
+    }));
+  };
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good Morning";
@@ -206,7 +265,7 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
     return "Good Evening";
   };
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if ((!input.trim() && !selectedImage) || isTyping || rateLimitError) return;
 
     const userText = input.trim();
@@ -215,10 +274,34 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
     setError("");
 
     // Add user message optimistically
-    setMessages((prev) => [...prev, { role: "user", text: userText }]);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", text: userText, image: selectedImage?.url || null },
+    ]);
+
+    let imageData = null;
+    let imageMime = null;
+
+    if (selectedImage?.file) {
+      try {
+        imageData = await toBase64(selectedImage.file);
+        imageMime = selectedImage.file.type;
+      } catch {
+        setError("Failed to process image");
+        return;
+      }
+    }
+
+    setSelectedImage(null);
 
     // Send ONLY via WebSocket
-    sendSocketMessage(userText, conversationIdRef.current, model);
+    sendSocketMessage(
+      userText,
+      conversationIdRef.current,
+      model,
+      imageData,
+      imageMime,
+    );
   };
 
   const handleKeyDown = (e) => {
@@ -230,10 +313,21 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
 
   const hasContent = input.trim() || selectedImage;
 
+  const toBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   return (
     <>
       <Message type="success" text={msg} onClose={() => setMsg("")} />
-      <Message type="error" text={error} onClose={() => setError("")} />
+      <Message type="warning" text={error} onClose={() => setError("")} />
 
       <div className="chat">
         {conversationId && conversationTitle && (
@@ -274,9 +368,30 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
             </div>
           </div>
         )}
+
+        {messages.length === 0 && !streamingText && (
+          <div className="ignitico-ghost-container">
+            <div className="ignitico-ghost" title="Ignitico Chat">
+              <Ghost size={22} strokeWidth={1.75} />
+            </div>
+          </div>
+        )}
+
         <div
           className={`chat-content ${messages.length > 0 || streamingText ? "has-messages" : ""}`}
         >
+          {messages.length === 0 && plan === "free" && (
+            <>
+              <div className="chat-user-plan">
+                Free plan
+                <div className="divider">|</div>
+                <span>
+                  <Link to="/upgrade" className="upgrade-link" >Upgrade</Link>
+                </span>
+              </div>
+            </>
+          )}
+
           {messages.length === 0 && !streamingText && (
             <div className="title-row">
               <ClarixIcon size={28} />
@@ -288,15 +403,73 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
 
           {(messages.length > 0 || streamingText) && (
             <div className="messages">
-              {messages.map((m, i) => (
-                <div key={i} className={`message ${m.role}`}>
-                  {m.role === "ai" ? (
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
-                  ) : (
-                    m.text
-                  )}
-                </div>
-              ))}
+              {messages.map((m, i) => {
+                const isLastAI = m.role === "ai" && i === messages.length - 1;
+
+                return (
+                  <div key={i} className={`message ${m.role}`}>
+                    {m.role === "ai" ? (
+                      <>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {m.text}
+                        </ReactMarkdown>
+
+                        {isLastAI && !isStreaming && (
+                          <div className="message-actions">
+                            <button
+                              className="message-action-btn"
+                              onClick={() => handleCopy(m.text, i)}
+                              title="Copy"
+                            >
+                              {copiedIndex === i ? (
+                                <Check size={15} />
+                              ) : (
+                                <Copy size={15} />
+                              )}
+                            </button>
+                            <button
+                              className={`message-action-btn ${feedbacks[i] === "up" ? "active-feedback-up" : ""}`}
+                              onClick={() => handleFeedback(i, "up")}
+                              title="Positive Response"
+                            >
+                              <ThumbsUp size={15} />
+                            </button>
+                            <button
+                              className={`message-action-btn ${feedbacks[i] === "down" ? "active-feedback-down" : ""}`}
+                              onClick={() => handleFeedback(i, "down")}
+                              title="Negative Response"
+                            >
+                              <ThumbsDown size={15} />
+                            </button>
+                            <button
+                              className="message-action-btn"
+                              onClick={handleRegenerate}
+                              title="Regenerate response"
+                            >
+                              <RotateCcw size={15} />
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <div className="user-message-content">
+                            {m.image && (
+                              <img
+                                src={m.image}
+                                alt="uploaded"
+                                className="message-image-preview"
+                              />
+                            )}
+                            {m.text && <span>{m.text}</span>}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
 
               {isTyping && (
                 <div className="message ai typing-logo">
@@ -313,6 +486,12 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
               className={`rate-limit-banner ${messages.length > 0 ? "change-width" : ""}`}
             >
               <span>{rateLimitError}</span>
+              <button
+                onClick={() => navigate("/upgrade")}
+                className="rate-limit-banner-upgrade"
+              >
+                Upgrade
+              </button>
             </div>
           )}
 

@@ -9,7 +9,7 @@ function MainLayout({
   refreshSidebarRef,
 }) {
   return (
-    <div className="app">
+    <div id="app">
       <Sidebar
         onNewChat={onNewChat}
         onSelectConversation={onSelectConversation}

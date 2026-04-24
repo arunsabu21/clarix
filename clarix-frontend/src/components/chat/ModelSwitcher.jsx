@@ -5,6 +5,7 @@ import "../../styles/Chat.css";
 const MODELS = [
   { id: "gemini", label: "Gemini 2.0 Flash", badge: "Fast" },
   { id: "groq", label: "Llama 3.3 70B", badge: "Powerful" },
+  { id: "openrouter", label: "OpenRouter (GPT-3.5)", badge: "Free"},
 ];
 
 function ModelSwitcher({ selected, onChange }) {

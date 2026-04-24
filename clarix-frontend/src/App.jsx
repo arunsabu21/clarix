@@ -4,6 +4,8 @@ import MainLayout from "./layouts/MainLayout";
 import Landing from "./pages/Home";
 import Chat from "./pages/Chat";
 import Login from "./pages/Login";
+import PricingPage from "./pages/PricingPage";
+import UpgradeSuccess from "./pages/UpgradeSuccess";
 import ProtectedRoute from "./routes/ProtectedRoute";
 
 function ChatWrapper() {
@@ -37,7 +39,15 @@ function App() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
-
+      <Route path="/upgrade" element={<PricingPage />} />
+      <Route
+        path="/upgrade/success"
+        element={
+          <ProtectedRoute>  
+            <UpgradeSuccess />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/chat"
         element={

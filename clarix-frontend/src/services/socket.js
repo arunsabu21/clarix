@@ -2,64 +2,78 @@ let socket = null;
 let messageHandlerRef = null;
 
 export const connectSocket = (token, onMessage, onError) => {
-    if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
-        return;
-    }
+  if (
+    socket &&
+    (socket.readyState === WebSocket.OPEN ||
+      socket.readyState === WebSocket.CONNECTING)
+  ) {
+    return;
+  }
 
-    const BASE_WS = import.meta.env.VITE_WS_URL;
+  const BASE_WS = import.meta.env.VITE_WS_URL;
 
-    const url = `${BASE_WS}/ws/chat/?token=${token}`;
-    messageHandlerRef = onMessage;
-    socket = new WebSocket(url);
+  const url = `${BASE_WS}/ws/chat/?token=${token}`;
+  messageHandlerRef = onMessage;
+  socket = new WebSocket(url);
 
-    socket.onopen = () => {
-        console.log("WebSocket connected");
-    };
+  socket.onopen = () => {
+    console.log("WebSocket connected");
+  };
 
-    socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        messageHandlerRef(data);
-    };
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    messageHandlerRef(data);
+  };
 
-    socket.onerror = (e) => {
-       console.warn("Socket error", e) 
-    };
+  socket.onerror = (e) => {
+    console.warn("Socket error", e);
+  };
 
-    socket.onclose = (e) => {
-        console.log("WebSocket closed:", e.code);
-        setTimeout(() => {
-            socket = null;
-        }, 1000);
-    };
+  socket.onclose = (e) => {
+    console.log("WebSocket closed:", e.code);
+    setTimeout(() => {
+      socket = null;
+    }, 1000);
+  };
 
-    return socket;
+  return socket;
 };
 
 export const updateSocketHandler = (onMessage) => {
-    messageHandlerRef = onMessage;
+  messageHandlerRef = onMessage;
 };
 
-export const sendSocketMessage = (message, conversationId = null, model = "gemini") => {
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
-        console.warn("Socket not ready");
-        return;
-    }
+export const sendSocketMessage = (
+  message,
+  conversationId = null,
+  model = "gemini",
+  imageData = null,
+  imageMime = null,
+) => {
+  if (!socket || socket.readyState !== WebSocket.OPEN) {
+    console.warn("Socket not ready");
+    return;
+  }
 
-    socket.send(JSON.stringify({
-        message,
-        conversation_id: conversationId,
-        model
-    }));
+  socket.send(
+    JSON.stringify({
+      message,
+      conversation_id: conversationId,
+      model,
+      image_data: imageData,
+      image_mime: imageMime,
+    }),
+  );
 };
 
 export const disconnectSocket = () => {
-    if (socket) {
-        socket.close();
-        socket = null;
-    }
+  if (socket) {
+    socket.close();
+    socket = null;
+  }
 };
 
 export const stopSocketMessage = () => {
-    if (!socket || socket.readyState !== WebSocket.OPEN) return;
-    socket.send(JSON.stringify({ type: "stop" }));
+  if (!socket || socket.readyState !== WebSocket.OPEN) return;
+  socket.send(JSON.stringify({ type: "stop" }));
 };

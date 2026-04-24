@@ -10,7 +10,7 @@ const icons = {
 
 const styles = {
   error: { color: "#991b1b", bg: "#fef2f2", border: "#fecaca" },
-  warning: { color: "#92400e", bg: "#fffbeb", border: "#fde68a" },
+  warning: { color: "#a86b00", bg: "#f9dda4", border: "#a86b00" },
   success: { color: "#166534", bg: "#f0fdf4", border: "#bbf7d0" },
   info: {color: "#1e40af", bg: "#eff6ff", border: "#bfdbfe"},
 };

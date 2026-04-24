@@ -770,6 +770,18 @@
   animation: fadeInUp 0.2s ease;
 }
 
+.rate-limit-banner-upgrade {
+  background: var(--color-button-primary);
+  color: var(--color-text-accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 .rate-limit-banner span {
   font-size: 13px;
   color: #92400e;
