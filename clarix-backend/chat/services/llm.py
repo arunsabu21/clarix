@@ -4,7 +4,7 @@ from groq import Groq
 from openai import OpenAI
 from django.conf import settings
 import base64
-from chat.prompts import get_system_prompt
+from chat.prompts import get_system_prompt, build_system_prompt
 
 # Config Gemini (new SDK)
 client_gemini = genai.Client(api_key=settings.GEMINI_API_KEY)
@@ -15,12 +15,12 @@ client_openrouter = OpenAI(
     base_url=settings.OPENROUTER_BASE_URL,
 )
 
-SYSTEM_PROMPT = get_system_prompt()
 
 
-def chat_with_gemini(messages: list, image_data: str = None, image_mime: str = None) -> str:
+def chat_with_gemini(messages: list, image_data: str = None, image_mime: str = None, user_settings: dict = None) -> str:
     """Primary LLM - Gemini 2.0 Flash"""
     try:
+        system_prompt = build_system_prompt(user_settings)
         # Format history
         contents = []
         
@@ -53,7 +53,7 @@ def chat_with_gemini(messages: list, image_data: str = None, image_mime: str = N
             model="gemini-2.0-flash",
             contents=contents,
             config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_PROMPT,
+                system_instruction=system_prompt,
                 max_output_tokens=1024,
             ),
         )
@@ -64,12 +64,13 @@ def chat_with_gemini(messages: list, image_data: str = None, image_mime: str = N
         return chat_with_groq(messages) # Fallback
 
 
-def chat_with_groq(messages: list) -> str:
+def chat_with_groq(messages: list, user_settings: dict = None) -> str:
     """Fallback LLM - Groq"""
     try:
         client = Groq(api_key=settings.GROQ_API_KEY)
-
-        formatted = [{"role": "system", "content": SYSTEM_PROMPT}]
+        
+        system_prompt = build_system_prompt(user_settings)
+        formatted = [{"role": "system", "content": system_prompt}]
         for msg in messages:
             formatted.append(
                 {
@@ -90,10 +91,11 @@ def chat_with_groq(messages: list) -> str:
         raise Exception("Something went wrong. Please try again.")
     
 
-def chat_with_openrouter(messages: list) -> str:
+def chat_with_openrouter(messages: list, user_settings: dict = None) -> str:
     """Fallback LLM - OpenRouter"""
     try:
-        formatted = [{"role": "system", "content": SYSTEM_PROMPT}]
+        system_prompt = build_system_prompt(user_settings)
+        formatted = [{"role": "system", "content": system_prompt}]
         
         for msg in messages:
             formatted.append({
@@ -113,24 +115,24 @@ def chat_with_openrouter(messages: list) -> str:
         raise Exception("OpenRouter Failed")
 
 
-def get_ai_response(messages: list, model: str = "gemini", image_data: str = None, image_mime: str = None) -> str:
+def get_ai_response(messages: list, model: str = "gemini", image_data: str = None, image_mime: str = None, user_settings: dict = None) -> str:
     """Main entry point - tries Gemini first, falls back to Groq"""
     
     if model == "groq":
-        return chat_with_groq(messages)
+        return chat_with_groq(messages, user_settings)
     elif model == "openrouter":
-        return chat_with_openrouter(messages)
+        return chat_with_openrouter(messages, user_settings)
     
     try:
-        return chat_with_gemini(messages, image_data, image_mime)
+        return chat_with_gemini(messages, image_data, image_mime, user_settings)
     
     except Exception as e:
         print(f"Gemini Failed: {e}")
         
         try:
-            return chat_with_groq(messages)
+            return chat_with_groq(messages, user_settings)
         
         except Exception as e:
             print(f"Groq Failed: {e}")
             
-            return chat_with_openrouter(messages)
+            return chat_with_openrouter(messages, user_settings)

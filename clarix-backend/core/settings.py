@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "channels",
     "utils",
     "upgrade",
+    "user_settings",
 ]
 
 MIDDLEWARE = [
