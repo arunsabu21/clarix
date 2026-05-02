@@ -61,7 +61,7 @@ def chat_with_gemini(messages: list, image_data: str = None, image_mime: str = N
     
     except Exception as e:
         print(f"Gemini Error: {e}")
-        return chat_with_groq(messages) # Fallback
+        return chat_with_groq(messages, user_settings) # Fallback
 
 
 def chat_with_groq(messages: list, user_settings: dict = None) -> str:
