@@ -103,7 +103,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
             # Build History
             history = await self.get_history(conversation)
-            
+
             # User settings
             user_settings = await self.get_user_settings()
 
@@ -113,7 +113,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
 
             self.streaming_task = asyncio.ensure_future(
-                self.stream_response(ai_response, conversation, user_message)
+                self.stream_response(
+                    ai_response,
+                    conversation,
+                    user_message,
+                    getattr(self, "_search_performed", False),
+                )
             )
 
         except Exception:
@@ -126,9 +131,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 )
             )
 
-    async def stream_response(self, ai_response, conversation, user_message):
+    async def stream_response(
+        self, ai_response, conversation, user_message, search_performed=False
+    ):
         streamed = ""
         try:
+            if search_performed:
+                await self.send(
+                    json.dumps(
+                        {
+                            "type": "search_used",
+                            "message": "Searching the web...",
+                        }
+                    )
+                )
+                await asyncio.sleep(1.8)
+
             words = ai_response.split(" ")
 
             for i, word in enumerate(words):
@@ -209,22 +227,34 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return msg
 
     @database_sync_to_async
-    def get_ai_response(self, history, model, image_data=None, image_mime=None, user_settings=None):
+    def get_ai_response(
+        self, history, model, image_data=None, image_mime=None, user_settings=None
+    ):
         from .services.llm import get_ai_response as llm_response
+        from .services.web_search import should_search
+
+        last_user_msg = ""
+        for msg in reversed(history):
+            if msg["role"] == "user":
+                last_user_msg = msg.get("content", "")
+                break
+
+        self._search_performed = bool(last_user_msg and should_search(last_user_msg))
 
         return llm_response(history, model, image_data, image_mime, user_settings)
-    
+
     @database_sync_to_async
     def get_user_settings(self):
         try:
             from user_settings.models import UserSettings
+
             settings, _ = UserSettings.objects.get_or_create(user=self.user)
             return {
                 "ai_name": settings.ai_name or self.user.name or "",
                 "professional_preference": settings.professional_preference,
                 "work_type": settings.work_type,
             }
-            
+
         except Exception:
             return {
                 "ai_name": self.user.name or "",

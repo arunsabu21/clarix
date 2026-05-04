@@ -216,3 +216,6 @@ STRIPE_PRICES = {
     "max_monthly": config("STRIPE_MAX_MONTHLY_PRICE_ID"),
     "max_yearly": config("STRIPE_MAX_YEARLY_PRICE_ID"),
 }
+
+# Web search
+TAVILY_API_KEY = config("TAVILY_API_KEY", default="")
