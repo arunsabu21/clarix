@@ -12,7 +12,7 @@ const styles = {
   error: { color: "#991b1b", bg: "#fef2f2", border: "#fecaca" },
   warning: { color: "#a86b00", bg: "#f9dda4", border: "#a86b00" },
   success: { color: "#166534", bg: "#f0fdf4", border: "#bbf7d0" },
-  info: {color: "#1e40af", bg: "#eff6ff", border: "#bfdbfe"},
+  info: {color: "#faf9f5", bg: "#141413", border: "#141413"},
 };
 
 function Message({ type = "error", text, onClose }) {

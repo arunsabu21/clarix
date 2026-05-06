@@ -780,6 +780,7 @@
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  text-decoration: underline;
 }
 
 .rate-limit-banner span {

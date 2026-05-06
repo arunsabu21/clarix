@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   CirclePlus,
   Search,
@@ -20,6 +21,7 @@ import api from "../../services/api";
 import ClarixLogo from "../common/ClarixLogo";
 import { getConversations, deleteConversation } from "../../services/chat";
 import { useAuthGlobal } from "../../context/AuthContext";
+import LoginTooltip from "../Sidebar/LoginTooltip";
 import "./Sidebar.css";
 
 function Sidebar({
@@ -29,6 +31,7 @@ function Sidebar({
   refreshSidebarRef,
 }) {
   const { user, logout } = useAuthGlobal();
+  const navigate = useNavigate();
 
   const [isOpen, setIsOpen] = useState(() => {
     const isMobile = window.matchMedia("(max-width: 768px)").matches;
@@ -142,7 +145,9 @@ function Sidebar({
         </button>
       )}
 
-      <aside className={`sidebar ${isOpen ? "sidebar--open" : "sidebar--collapsed"}`}>
+      <aside
+        className={`sidebar ${isOpen ? "sidebar--open" : "sidebar--collapsed"}`}
+      >
         {/* ── Header ── */}
         <div className="sidebar__header">
           {isOpen && (
@@ -160,75 +165,80 @@ function Sidebar({
         </div>
 
         {/* ── Body ── */}
-        <div className={`sidebar__body ${!isOpen ? "sidebar__body--hidden" : ""}`}>
+        <div className="sidebar__body">
           {/* New Chat */}
           <button className="sidebar__new-chat" onClick={handleNewChat}>
             <CirclePlus size={15} strokeWidth={2} />
-            <span>New Chat</span>
+            {isOpen && <span>New Chat</span>}
           </button>
 
           <div className="sidebar__nav">
             <button className="sidebar__nav-item">
               <Search size={18} strokeWidth={1.5} />
-              <span>Search</span>
+              {isOpen && <span>Search</span>}
             </button>
             <button className="sidebar__nav-item">
               <MessageSquare size={18} strokeWidth={1.5} />
-              <span>Chats</span>
+              {isOpen && <span>Chats</span>}
             </button>
             <button className="sidebar__nav-item">
               <FolderOpen size={18} strokeWidth={1.5} />
-              <span>Projects</span>
+              {isOpen && <span>Projects</span>}
             </button>
           </div>
 
           {/* Conversations */}
-          <div className="sidebar__recents">
-            <p className="sidebar__section-label">Recents</p>
+          {isOpen && (
+            <div className="sidebar__recents">
+              <p className="sidebar__section-label">Recents</p>
 
-            {conversations.length === 0 ? (
-              <p className="sidebar__empty">No conversations yet</p>
-            ) : (
-              <ul className="sidebar__conv-list" role="list">
-                {conversations.map((conv) => (
-                  <li key={conv.id}>
-                    <button
-                      className={`sidebar__conv-item ${
-                        activeConversationId === conv.id
-                          ? "sidebar__conv-item--active"
-                          : ""
-                      }`}
-                      onClick={() => {
-                        onSelectConversation(conv.id);
-                        if (window.innerWidth <= 768) setIsOpen(false);
-                      }}
-                      onMouseEnter={() => setHoveredId(conv.id)}
-                      onMouseLeave={() => setHoveredId(null)}
-                      title={conv.title || "New Chat"}
-                    >
-                      <span className="sidebar__conv-title">
-                        {conv.title?.trim() || "New Chat"}
-                      </span>
-                      <span
-                        className={`sidebar__conv-delete ${
-                          hoveredId === conv.id || activeConversationId === conv.id
-                            ? "sidebar__conv-delete--visible"
+              {conversations.length === 0 ? (
+                <p className="sidebar__empty">No conversations yet</p>
+              ) : (
+                <ul className="sidebar__conv-list" role="list">
+                  {conversations.map((conv) => (
+                    <li key={conv.id}>
+                      <button
+                        className={`sidebar__conv-item ${
+                          activeConversationId === conv.id
+                            ? "sidebar__conv-item--active"
                             : ""
                         }`}
-                        role="button"
-                        tabIndex={0}
-                        aria-label="Delete conversation"
-                        onClick={(e) => handleDelete(e, conv.id)}
-                        onKeyDown={(e) => e.key === "Enter" && handleDelete(e, conv.id)}
+                        onClick={() => {
+                          onSelectConversation(conv.id);
+                          if (window.innerWidth <= 768) setIsOpen(false);
+                        }}
+                        onMouseEnter={() => setHoveredId(conv.id)}
+                        onMouseLeave={() => setHoveredId(null)}
+                        title={conv.title || "New Chat"}
                       >
-                        <Trash2 size={12} />
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+                        <span className="sidebar__conv-title">
+                          {conv.title?.trim() || "New Chat"}
+                        </span>
+                        <span
+                          className={`sidebar__conv-delete ${
+                            hoveredId === conv.id ||
+                            activeConversationId === conv.id
+                              ? "sidebar__conv-delete--visible"
+                              : ""
+                          }`}
+                          role="button"
+                          tabIndex={0}
+                          aria-label="Delete conversation"
+                          onClick={(e) => handleDelete(e, conv.id)}
+                          onKeyDown={(e) =>
+                            e.key === "Enter" && handleDelete(e, conv.id)
+                          }
+                        >
+                          <Trash2 size={12} />
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── Footer / User ── */}
@@ -236,14 +246,23 @@ function Sidebar({
           className={`sidebar__footer ${!isOpen ? "sidebar__footer--collapsed" : ""}`}
           ref={userMenuRef}
         >
+          <LoginTooltip user={user} />
           {/* User popup menu */}
           {userMenuOpen && isOpen && (
             <div className="sidebar__user-menu" role="menu">
-              <button className="sidebar__user-menu-item" role="menuitem">
+              <button
+                onClick={() => navigate("/settings")}
+                className="sidebar__user-menu-item"
+                role="menuitem"
+              >
                 <Settings size={13} />
                 Settings
               </button>
-              <button className="sidebar__user-menu-item" role="menuitem">
+              <button
+                onClick={() => navigate("/upgrade")}
+                className="sidebar__user-menu-item"
+                role="menuitem"
+              >
                 <CircleArrowUp size={13} />
                 Upgrade Plan
               </button>
@@ -275,23 +294,23 @@ function Sidebar({
             {isOpen && (
               <>
                 <div className="sidebar__user-text">
-                  <span className="sidebar__user-name">{user?.name || "User"}</span>
+                  <span className="sidebar__user-name">
+                    {user?.name || "User"}
+                  </span>
                   <span className="sidebar__user-email">{user?.email}</span>
-                  <span className={`plan-badge plan-badge--${plan}`} >
+                  <span className={`plan-badge plan-badge--${plan}`}>
                     {plan === "pro" ? (
                       <>
-                      <Zap size={10} fill="currentColor" /> Pro
+                        <Zap size={10} fill="currentColor" /> Pro
+                      </>
+                    ) : plan === "max" ? (
+                      <>
+                        <Crown size={10} fill="currentColor" /> Max
                       </>
                     ) : (
-                      plan === "max" ? (
-                        <>
-                        <Crown size={10} fill="currentColor" /> Max
-                        </>
-                      ) : (
-                        <>
+                      <>
                         <Circle size={10} /> Free
-                        </>
-                      )
+                      </>
                     )}
                   </span>
                 </div>
@@ -302,7 +321,6 @@ function Sidebar({
               </>
             )}
           </button>
-
         </div>
       </aside>
     </>

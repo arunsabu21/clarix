@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuthGlobal } from "../context/AuthContext";
+import { useMessage } from "../context/MessageContext";
 import Message from "../components/common/Alert";
 import {
   ArrowUp,
@@ -15,6 +16,7 @@ import {
   ThumbsUp,
   ThumbsDown,
   Ghost,
+  Search,
 } from "lucide-react";
 import ClarixIcon from "../components/common/ClarixIcon";
 import ButtonSpinner from "../components/chat/ButtonSpinner";
@@ -23,6 +25,7 @@ import ModelSwitcher from "../components/chat/ModelSwitcher";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getConversation, deleteConversation } from "../services/chat";
+import { showResponseCompleteNotification } from "../utils/notifications";
 import {
   connectSocket,
   sendSocketMessage,
@@ -36,12 +39,13 @@ import api from "../services/api";
 function Chat({ conversationId, setConversationId, onConversationCreated }) {
   const navigate = useNavigate();
   const { user } = useAuthGlobal();
+  const { setMsg } = useMessage();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [error, setError] = useState("");
-  const [msg, setMsg] = useState("");
+  const [msg, setLocalMsg] = useState("");
   const [showUpload, setShowUpload] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
   const [model, setModel] = useState("gemini");
@@ -52,6 +56,8 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
   const [copiedIndex, setCopiedIndex] = useState(null);
   const [feedbacks, setFeedbacks] = useState({});
   const [plan, setPlan] = useState("free");
+  const [aiName, setAiName] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
 
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -60,6 +66,7 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
   const socketHandlerRef = useRef(null);
   const justCreatedRef = useRef(false);
   const ghostRef = useRef(null);
+  const isSearchingRef = useRef(false);
 
   useEffect(() => {
     const fetchPlan = async () => {
@@ -72,11 +79,19 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
   }, []);
 
   useEffect(() => {
-    if (user?.email && sessionStorage.getItem("just_logged_in")) {
-      setMsg(`Authenticated as ${user.email}`);
-      sessionStorage.removeItem("just_logged_in");
-    }
-  }, [user]);
+    const fetchAiName = async () => {
+      try {
+        const res = await api.get("/settings/general/");
+        setAiName(res.data.ai_name || "");
+      } catch {}
+    };
+    fetchAiName();
+  }, []);
+
+  const setIsSearchingBoth = (val) => {
+    isSearchingRef.current = val;
+    setIsSearching(val);
+  };
 
   socketHandlerRef.current = (data) => {
     if (data.type === "typing") {
@@ -86,7 +101,12 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
       setMessages((prev) => [...prev, { role: "ai", text: "" }]);
     }
 
+    if (data.type === "search_used") {
+      setIsSearching(true);
+    }
+
     if (data.type === "stream") {
+      setIsSearching(false);
       streamRef.current += data.content;
 
       setMessages((prev) => {
@@ -104,11 +124,17 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
     }
 
     if (data.type === "done") {
+      setIsSearching(false);
       setMessages((prev) => [...prev, { role: "ai", text: streamRef.current }]);
       setStreamingText("");
       streamRef.current = "";
       setIsTyping(false);
       setIsStreaming(false);
+
+      const notifyEnabled = localStorage.getItem("notify_response_complete");
+      if (notifyEnabled === "true") {
+        showResponseCompleteNotification(data.title || "your message", setMsg);
+      }
 
       if (!conversationIdRef.current) {
         justCreatedRef.current = true;
@@ -120,6 +146,7 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
     }
 
     if (data.type === "error") {
+      setIsSearching(false);
       setIsStreaming(false);
       if (
         data.message?.includes("message limit") ||
@@ -166,14 +193,23 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
       justCreatedRef.current = false;
       return;
     }
-
+    setMessages([]);
     setConversationTitle("");
+    setIsTyping(false);
+    setIsStreaming(false);
+    setIsSearching(false);
+    setError("");
+    setRateLimitError("");
+    streamRef.current = "";
+
     loadConversation(conversationId);
   }, [conversationId]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isTyping, streamingText]);
+    if (document.visibilityState === "visible") {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isTyping, isSearching, streamingText]);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -197,11 +233,7 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
         text: m.content,
       }));
 
-      setMessages((prev) => {
-        // prevent overwrite if UI already has newer data
-        if (prev.length >= formatted.length) return prev;
-        return formatted;
-      });
+      setMessages(formatted);
     } catch {
       setError("Failed to load conversation.");
     }
@@ -326,7 +358,7 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
 
   return (
     <>
-      <Message type="success" text={msg} onClose={() => setMsg("")} />
+      <Message type="success" text={msg} onClose={() => setLocalMsg("")} />
       <Message type="warning" text={error} onClose={() => setError("")} />
 
       <div className="chat">
@@ -386,7 +418,9 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
                 Free plan
                 <div className="divider">|</div>
                 <span>
-                  <Link to="/upgrade" className="upgrade-link" >Upgrade</Link>
+                  <Link to="/upgrade" className="upgrade-link">
+                    Upgrade
+                  </Link>
                 </span>
               </div>
             </>
@@ -396,7 +430,7 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
             <div className="title-row">
               <ClarixIcon size={28} />
               <div className="user-wishing">
-                {getGreeting()}, {user?.name || "there"}
+                {getGreeting()}, {aiName || user?.name || "there"}
               </div>
             </div>
           )}
@@ -474,6 +508,12 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
               {isTyping && (
                 <div className="message ai typing-logo">
                   <ClarixIcon size={20} />
+                </div>
+              )}
+
+              {isSearching && (
+                <div className="message ai">
+                  <span className="search-shimmer">Searching the web...</span>
                 </div>
               )}
 

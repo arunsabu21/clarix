@@ -38,6 +38,7 @@ export function useAuth() {
       err?.response?.data?.error ||
       err?.response?.data?.message ||
       "Incorrect code. Please try again."
+      setGlobalError(message);
       return null;
     } finally {
       setLoading(false);

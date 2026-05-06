@@ -221,3 +221,25 @@
   text-underline-offset: 3px;
   text-decoration-color: color-mix(in srgb, currentColor, transparent 60%);
 }
+
+.search-shimmer {
+  font-size: 14px;
+  font-weight: 400;
+  color: transparent;
+  background: linear-gradient(
+    90deg,
+    #999 25%,
+    #333 50%,
+    #999 75%
+  );
+  background-size: 200% auto;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 1.5s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}

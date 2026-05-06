@@ -34,9 +34,17 @@
   --scrollbar-width: thin;
 }
 
-[data-theme="light"] {
-  --color-bg-primary: #ffffff;
-  --color-text-primary: #141413;
+[data-theme="dark"] {
+  --color-bg-primary: #1a1a1a;
+  --color-bg-secondary: #222222;
+  --color-accent: #2a2a2a;
+  --color-text-primary: #f5f5f5;
+  --color-text-secondary: #d1d1d1;
+  --color-text-muted: #888888;
+  --color-border: #333333;
+  --color-button-primary: #ffffff;
+  --hover-main: #2d2d2d;
+  --sidebar-bg: #111111;
 }
 
 * {
@@ -123,6 +131,15 @@ span {
 .flex-grow,
 .grow {
   flex-grow: 1;
+}
+
+.can-focus,
+a,
+button,
+input,
+textarea {
+  outline: 2px solid hsla(var(--color-accent) / 0%);
+  outline-offset: 2px;
 }
 
 body {
