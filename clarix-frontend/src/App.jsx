@@ -7,6 +7,7 @@ import Login from "./pages/Login";
 import PricingPage from "./pages/PricingPage";
 import UpgradeSuccess from "./pages/UpgradeSuccess";
 import UserSettings from "./pages/Settings";
+import SearchChats from "./pages/Chats";
 import ProtectedRoute from "./routes/ProtectedRoute";
 
 function ChatWrapper() {
@@ -63,6 +64,14 @@ function App() {
         element={
           <ProtectedRoute>
             <UserSettings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/recents"
+        element={
+          <ProtectedRoute>
+            <SearchChats />
           </ProtectedRoute>
         }
       />

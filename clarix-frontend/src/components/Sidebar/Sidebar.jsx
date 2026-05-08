@@ -89,7 +89,7 @@ function Sidebar({
   const fetchConversations = async () => {
     try {
       const res = await getConversations();
-      setConversations(res.data);
+      setConversations(res.data.results || []);
     } catch (err) {
       console.error("Failed to load conversations:", err);
     }
