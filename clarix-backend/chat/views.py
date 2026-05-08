@@ -18,6 +18,8 @@ from .serializers import (
     MessageSerializer,
 )
 from .services.llm import get_ai_response
+from rest_framework.pagination import PageNumberPagination
+from django.db.models import Q
 
 
 class ConversationListView(APIView):
@@ -25,6 +27,25 @@ class ConversationListView(APIView):
 
     def get(self, request):
         conversations = Conversation.objects.filter(user=request.user)
+        
+        search = request.query_params.get("search", "").strip()
+        if search:
+            conversations = conversations.filter(
+                Q(title__icontains=search)
+            )
+        
+        ordering = request.query_params.get("ordering", "-updated_at")
+        allowed = ["updated_at", "-updated_at", "created_at", "-created_at", "title", "-title"]
+        if ordering not in allowed:
+            ordering = "-updated_at"
+        conversations = conversations.order_by(ordering)
+        
+        paginator = ConversationPagination()
+        page = paginator.paginate_queryset(conversations, request)
+        if page is not None:
+            serializer = ConversationListSerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+        
         serializer = ConversationListSerializer(conversations, many=True)
         return Response(serializer.data)
 
@@ -53,6 +74,28 @@ class ConversationDetailView(APIView):
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Conversation.DoesNotExist:
             return Response({"error": "Not Found."}, status=status.HTTP_404_NOT_FOUND)
+    
+    def patch(self, request, pk):
+        try:
+            conversation = Conversation.objects.get(
+                pk=pk,
+                user=request.user
+            )
+        except Conversation.DoesNotExist:
+            return Response({"error": "Not Found"}, status=status.HTTP_404_NOT_FOUND)
+        
+        title = request.data.get("title", "").strip()
+        
+        if not title:
+            return Response({"error": "Title cannot be empty"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if len(title) > 100:
+            return Response({"error": "Title too long"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        conversation.title = title
+        conversation.save(update_fields=["title", "updated_at"])
+        
+        return Response({"id": str(conversation.id), "title": conversation.title})
 
 
 class SendMessageView(APIView):
@@ -135,3 +178,55 @@ class SendMessageView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class ConversationPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
+    
+    def get_paginated_response(self, data):
+        return Response({
+            "count": self.page.paginator.count,
+            "total_pages": self.page.paginator.num_pages,
+            "current_page": self.page.number,
+            "next": self.get_next_link(),
+            "previous": self.get_previous_link(),
+            "results": data,
+        })
+
+
+class DeleteAllConversationsView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def delete(self, request):
+        deleted_count, _ = Conversation.objects.filter(
+            user=request.user
+        ).delete()
+        return Response({
+            "message": f"Deleted {deleted_count} conversation(s).",
+            "deleted_count": deleted_count,
+        })
+
+
+class DeleteMultipleConversationsView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def delete(self, request):
+        ids = request.data.get("ids", [])
+        
+        if not ids:
+            return Response(
+                {"error": "No conversation IDs provided."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+            
+        deleted_count, _ = Conversation.objects.filter(
+            user=request.user,
+            id__in=ids,
+        ).delete()
+        
+        return Response({
+            "message": f"Deleted {deleted_count} conversation(s).",
+            "deleted_count": deleted_count,
+        })
