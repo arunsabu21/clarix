@@ -5,7 +5,7 @@ import {
   Search,
   Trash2,
   Loader2,
-  CheckSquare,
+  Check,
   Square,
   X,
   MessageSquare,
@@ -15,9 +15,6 @@ import "../styles/SearchChats.css";
 import DeleteAllChatPopUp from "../components/chat/DeleteAllChatModal";
 import Sidebar from "../components/Sidebar/Sidebar";
 
-/* ─────────────────────────────────────────────────────────────
-   HELPERS
-───────────────────────────────────────────────────────────── */
 function useDebounce(value, delay = 400) {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -39,37 +36,28 @@ function formatDate(dateStr) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-/* ─────────────────────────────────────────────────────────────
-   MAIN COMPONENT
-───────────────────────────────────────────────────────────── */
 export default function SearchChats() {
   const navigate = useNavigate();
 
-  // ── Data
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // ── Pagination
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [count, setCount] = useState(0);
 
-  // ── Search
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebounce(searchInput, 400);
   const searchRef = useRef(null);
 
-  // ── Selection
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState(new Set());
 
-  // ── Actions
   const [deleting, setDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
 
-  /* ── Fetch ── */
   const fetchChats = useCallback(async (pg = 1, search = "") => {
     try {
       setLoading(true);
@@ -83,7 +71,6 @@ export default function SearchChats() {
 
       const res = await api.get(`/chat/conversations/?${params}`);
 
-      // Handle both paginated and non-paginated responses
       if (res.data.results) {
         setChats(res.data.results);
         setTotalPages(res.data.total_pages || 1);
@@ -109,7 +96,6 @@ export default function SearchChats() {
     fetchChats(page, debouncedSearch);
   }, [page]);
 
-  /* ── Selection helpers ── */
   const allSelected = chats.length > 0 && selected.size === chats.length;
   const someSelected = selected.size > 0;
 
@@ -134,7 +120,6 @@ export default function SearchChats() {
     }
   };
 
-  /* ── Delete single ── */
   const handleDeleteOne = async (e, id) => {
     e.preventDefault();
     e.stopPropagation();
@@ -155,7 +140,6 @@ export default function SearchChats() {
     }
   };
 
-  /* ── Delete selected ── */
   const handleDeleteSelected = async () => {
     if (!selected.size) return;
     try {
@@ -174,7 +158,6 @@ export default function SearchChats() {
     }
   };
 
-  /* ── Delete all ── */
   const confirmDeleteAll = async () => {
     try {
       setDeleting(true);
@@ -193,7 +176,6 @@ export default function SearchChats() {
     }
   };
 
-  /* ── Navigate to chat ── */
   const handleChatClick = (id) => {
     if (selectMode) return;
     navigate(`/chat?c=${id}`);
@@ -201,10 +183,9 @@ export default function SearchChats() {
 
   return (
     <>
-    <Sidebar />
+      <Sidebar />
       <div id="recentChats">
         <div className="recent-chats-layout">
-          {/* ── Header ── */}
           <header className="recent-header recent-header-min768 recent-header-align">
             <div className="recent-title-block recent-title-padding-min1024 recent-title-padding-min768">
               <h1 className="recent-title">
@@ -212,7 +193,6 @@ export default function SearchChats() {
               </h1>
 
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                {/* Delete all */}
                 {chats.length > 0 && !selectMode && (
                   <button
                     className="nc-btn del-all-chat"
@@ -228,7 +208,6 @@ export default function SearchChats() {
                   </button>
                 )}
 
-                {/* New chat */}
                 <Link to="/chat" className="nc-btn">
                   <CirclePlus size={16} />
                   New chat
@@ -237,9 +216,7 @@ export default function SearchChats() {
             </div>
           </header>
 
-          {/* ── Main ── */}
           <main className="recent-main recent-main-min1024 recent-main-min768">
-            {/* Error */}
             {error && (
               <div className="chats-error">
                 <span>{error}</span>
@@ -249,7 +226,6 @@ export default function SearchChats() {
               </div>
             )}
 
-            {/* Search box */}
             <div role="search">
               <label htmlFor="sr" className="sr-label">
                 Search your chats
@@ -289,9 +265,7 @@ export default function SearchChats() {
               </div>
             </div>
 
-            {/* Select bar */}
             <div className="recent-select-all recent-select-all-margin">
-              {/* Select all checkbox */}
               <div
                 className={`recent-select-all-check ${!selectMode ? "opacity-none" : ""}`}
                 onClick={selectMode ? toggleAll : undefined}
@@ -300,7 +274,7 @@ export default function SearchChats() {
                 <label className="check-label">
                   <div className="check-box">
                     {selectMode && allSelected && (
-                      <CheckSquare size={14} color="#0d0d0d" />
+                      <Check size={14} color="#fff" />
                     )}
                     {selectMode && !allSelected && someSelected && (
                       <Square size={14} color="#73726c" />
@@ -371,9 +345,7 @@ export default function SearchChats() {
               </div>
             </div>
 
-            {/* Chat list */}
             <div className="conversations-base c-pd c-mr">
-              {/* Loading */}
               {loading && (
                 <div className="chats-loading">
                   <Loader2 size={20} className="spin" />
@@ -381,7 +353,6 @@ export default function SearchChats() {
                 </div>
               )}
 
-              {/* Empty */}
               {!loading && chats.length === 0 && (
                 <div className="chats-empty">
                   <MessageSquare size={60} strokeWidth={1} color="#d1d6e0" />
@@ -402,7 +373,6 @@ export default function SearchChats() {
                 </div>
               )}
 
-              {/* List */}
               {!loading && chats.length > 0 && (
                 <ul role="list" aria-label="Chats" className="flex flex-col">
                   {chats.map((chat) => (
@@ -411,7 +381,6 @@ export default function SearchChats() {
                       key={chat.id}
                     >
                       <div className="rel">
-                        {/* Checkbox */}
                         <div
                           className={`c-li-check cli-check-left ${selectMode ? "c-li-check--visible" : ""}`}
                           onClick={() => selectMode && toggleOne(chat.id)}
@@ -420,12 +389,10 @@ export default function SearchChats() {
                             className={`check-box ${selected.has(chat.id) ? "check-box--checked" : ""}`}
                           >
                             {selected.has(chat.id) && (
-                              <CheckSquare size={12} color="#0d0d0d" />
+                              <Check size={12} color="#fff" />
                             )}
                           </div>
                         </div>
-
-                        {/* Chat row */}
                         <div
                           className="chat-link chat-link-pd"
                           onClick={() =>
@@ -476,7 +443,6 @@ export default function SearchChats() {
               )}
             </div>
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="chats-pagination">
                 <button

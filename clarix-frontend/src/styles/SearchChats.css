@@ -188,8 +188,9 @@
   padding: 0;
 }
 
-.sr-box:focus {
-  border-color: hsl(210 70.9% 51.6%);
+.sr-box:focus-within {
+  border-color: hsl(210, 70.9%, 51.6%);
+  outline: none; 
 }
 
 .recent-select-all {
@@ -243,6 +244,10 @@
   background-color: var(--color-bg-primary);
 }
 
+.check-box--checked {
+  background: hsl(210 70.9% 51.6%);
+}
+
 .conversations-base {
   margin-left: -12px;
   margin-right: -12px;
@@ -271,15 +276,12 @@
 
 .c-li {
   position: relative;
-  border-top-width: 0.5px;
-  border-bottom-width: 0.5px;
   border-color: var(--color-border);
   transition-property: none;
 }
 
 .c-li:hover {
-  border-top-width: 0;
-  border-bottom-width: 0;
+  border-color: transparent;
 }
 
 .c-li-check {
@@ -359,4 +361,213 @@
 .chats-empty p {
   color: var(--color-text-muted);
   margin-top: 6px;
+}
+
+.chats-text-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.chats-text-btn:hover {
+  background: var(--hover-main);
+  color: var(--color-button-primary);
+
+}
+
+.chats-text-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chats-select-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 430;
+  color: hsl(210 70.9% 51.6%);
+  text-decoration: underline;
+  padding: 0;
+  margin-left: 4px;
+}
+
+.sr-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 2px;
+  border-radius: 50%;
+  transition: background 0.15s ease;
+}
+
+.sr-clear:hover {
+  background: var(--hover-main);
+}
+
+.chats-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 0;
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.chat-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.chat-title-text {
+  font-size: 14px;
+  font-weight: 430;
+  color: var(--color-text-primary);
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-date {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.chat-delete-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.c-li:hover .chat-delete-btn {
+  display: flex;
+}
+
+.chat-delete-btn:hover {
+  background: var(--hover-main);
+  color: var(--color-text-primary);
+}
+
+.chat-delete-btn:disabled {
+  opacity: 0.05;
+  cursor: not-allowed;
+}
+
+.c-li--selected {
+  background: var(--color-bg-secondary);
+}
+
+.check-box--checked {
+  background: hsl(210 70.9% 51.6%);
+  border-color: hsl(210 70.9% 51.6%);
+}
+
+.c-li-check--visible {
+  opacity: 1 !important;
+  cursor: pointer;
+}
+
+.chats-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 0 16px;
+}
+
+.page-btn {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: var(--hover-main);
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-numbers {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.page-num {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  border: none;
+  background: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.page-num:hover {
+  background: var(--hover-main);
+
+}
+
+.page-num--active {
+  background: var(--color-button-primary);
+  color: var(--color-text-accent);
+}
+
+.page-dot {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  padding: 0 4px;
+}
+
+@media (max-width: 640px) {
+  .chat-delete-btn {
+    display: flex;
+  }
+
+  .chat-text-btn {
+    font-size: 12px;
+    padding: 4px 6px;
+  }
 }

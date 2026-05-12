@@ -177,7 +177,7 @@ function Sidebar({
               <Search size={18} strokeWidth={1.5} />
               {isOpen && <span>Search</span>}
             </button>
-            <button className="sidebar__nav-item">
+            <button className="sidebar__nav-item" onClick={() => navigate("/recents")}>
               <MessageSquare size={18} strokeWidth={1.5} />
               {isOpen && <span>Chats</span>}
             </button>
