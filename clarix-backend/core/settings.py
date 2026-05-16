@@ -47,11 +47,13 @@ INSTALLED_APPS = [
     "corsheaders",
     "authentication",
     "rest_framework_simplejwt.token_blacklist",
+    "drf_spectacular",
     "chat",
     "channels",
     "utils",
     "upgrade",
     "user_settings",
+    "projects",
 ]
 
 MIDDLEWARE = [
@@ -148,6 +150,16 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "utils.authentication.CachedJWTAuthentication",
     ),
+
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    
+}
+
+# Swagger
+SPECTACULAR_SETTINGS = {
+    "TITLE": "AI Chat API",
+    "DESCRIPTION": "Backend API Documentation",
+    "VERSION": "1.0.0",
 }
 
 # CORS

@@ -11,6 +11,14 @@ class Conversation(models.Model):
     title = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="conversations",
+        help_text="Project this conversation belongs to",
+    )
 
     class Meta:
         ordering = ["-updated_at"]
