@@ -41,7 +41,7 @@ Be a helpful, natural, and friendly assistant — like a smart friend, not a cha
 """
 
 
-def build_system_prompt(user_settings=None) -> str:
+def build_system_prompt(user_settings=None, project_context=None) -> str:
     base = get_system_prompt()
 
     if not user_settings:
@@ -99,5 +99,13 @@ def build_system_prompt(user_settings=None) -> str:
         base += "\n\nUser Personalization:\n" + "\n".join(
             f"- {e}" for e in extras
         )
+
+    if project_context:
+        base += f"\n\nProject Context:"
+        base += f"\n- The user is working inside a project called '{project_context['name']}'."
+
+        if project_context.get("description"):
+            base += f"\n- Project description: {project_context['description']}"
+        base += "\n- Keep response relevant to this project context when appropriate."
 
     return base

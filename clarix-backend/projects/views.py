@@ -61,7 +61,7 @@ class ProjectListView(APIView):
             is_archived=False,
         ).count()
 
-        if existing >= 20:
+        if existing >= 10:
             return Response(
                 {"error": "Maximum 20 active projects allowed"},
                 status=status.HTTP_400_BAD_REQUEST,

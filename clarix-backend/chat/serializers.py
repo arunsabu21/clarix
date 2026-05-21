@@ -10,6 +10,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
 class ConversationSerializer(serializers.ModelSerializer):
     messages = MessageSerializer(many=True, read_only=True)
+    project = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
@@ -19,12 +20,27 @@ class ConversationSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "messages",
+            "project",
         ]
+
+    def get_project(self, obj):
+        if not obj.project:
+            return None
+        
+        return {
+            "id": str(obj.project.id),
+            "name": obj.project.name,
+            "icon": obj.project.icon,
+            "color": obj.project.color,
+            "description": obj.project.description or "",
+        }
 
 
 class ConversationListSerializer(serializers.ModelSerializer):
     last_message = serializers.SerializerMethodField()
     message_count = serializers.SerializerMethodField()
+    project_name = serializers.SerializerMethodField()
+    project_icon = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
@@ -35,6 +51,8 @@ class ConversationListSerializer(serializers.ModelSerializer):
             "last_message",
             "created_at",
             "updated_at",
+            "project_name",
+            "project_icon",
         ]
     
     def get_last_message(self, obj):
@@ -51,6 +69,12 @@ class ConversationListSerializer(serializers.ModelSerializer):
     
     def get_message_count(self, obj):
         return obj.messages.count()
+    
+    def get_project_name(self, obj):
+        return obj.project.name if obj.project else None
+    
+    def get_project_icon(self, obj):
+        return obj.project.icon if obj.project else None
 
 
 class SendMessageSerializer(serializers.Serializer):

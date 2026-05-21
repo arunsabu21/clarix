@@ -14,6 +14,21 @@ def should_search(message: str) -> bool:
 
     if len(message_lower) < 10:
         return False
+    
+    project_keywords = [
+        "my project",
+        "current_project",
+        "attached project",
+        "this project",
+        "project  context",
+    ]
+
+    if any (keyword in message_lower for keyword in project_keywords):
+        print("PROJECT EXCLUSION HIT")
+        return False
+    
+    if "project" in message_lower:
+        return False
 
     # Always search triggers
     high_priority = [

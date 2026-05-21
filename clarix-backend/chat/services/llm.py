@@ -22,10 +22,12 @@ def chat_with_gemini(
     image_data: str = None,
     image_mime: str = None,
     user_settings: dict = None,
+    project_context: dict = None,
 ) -> str:
     """Primary LLM - Gemini 2.0 Flash"""
+    print("GEMINI FUNCTION PROJECT_CONTEXT", project_context)
     try:
-        system_prompt = build_system_prompt(user_settings)
+        system_prompt = build_system_prompt(user_settings, project_context)
         # Format history
         contents = []
 
@@ -66,15 +68,21 @@ def chat_with_gemini(
 
     except Exception as e:
         print(f"Gemini Error: {e}")
-        return chat_with_groq(messages, user_settings)  # Fallback
+        return chat_with_groq(
+            messages=messages,
+            user_settings=user_settings,
+            project_context=project_context,
+        )  # Fallback
 
 
-def chat_with_groq(messages: list, user_settings: dict = None) -> str:
+def chat_with_groq(
+    messages: list, user_settings: dict = None, project_context: dict = None
+) -> str:
     """Fallback LLM - Groq"""
     try:
         client = Groq(api_key=settings.GROQ_API_KEY)
 
-        system_prompt = build_system_prompt(user_settings)
+        system_prompt = build_system_prompt(user_settings, project_context)
         formatted = [{"role": "system", "content": system_prompt}]
         for msg in messages:
             formatted.append(
@@ -96,10 +104,12 @@ def chat_with_groq(messages: list, user_settings: dict = None) -> str:
         raise Exception("Something went wrong. Please try again.")
 
 
-def chat_with_openrouter(messages: list, user_settings: dict = None) -> str:
+def chat_with_openrouter(
+    messages: list, user_settings: dict = None, project_context: dict = None
+) -> str:
     """Fallback LLM - OpenRouter"""
     try:
-        system_prompt = build_system_prompt(user_settings)
+        system_prompt = build_system_prompt(user_settings, project_context)
         formatted = [{"role": "system", "content": system_prompt}]
 
         for msg in messages:
@@ -124,31 +134,32 @@ def get_ai_response(
     image_mime: str = None,
     user_settings: dict = None,
     enable_search: bool = True,
+    project_context: dict = None,
 ) -> str:
     """Main entry point - tries Gemini first, falls back to Groq"""
-    
+
     search_context = ""
     search_performed = ""
-    
+
     if enable_search and messages:
         last_user_msg = ""
         for msg in reversed(messages):
             if msg["role"] == "user":
                 last_user_msg = msg.get("content", "")
                 break
-        
+
         if last_user_msg and should_search(last_user_msg):
             print(f"Web search triggered for: {last_user_msg[:50]}")
             search_data = web_search(last_user_msg)
-            
+
             if search_data["success"] and search_data["results"]:
                 search_context = format_search_context(search_data)
                 search_performed = True
                 print(f"Search done: {len(search_data['results'])} results")
-    
+
     messages_with_context = messages.copy()
     if search_context and messages_with_context:
-        for i in range(len(messages_with_context) -1, -1, -1):
+        for i in range(len(messages_with_context) - 1, -1, -1):
             if messages_with_context[i]["role"] == "user":
                 original = messages_with_context[i]["content"]
                 messages_with_context[i] = {
@@ -158,20 +169,42 @@ def get_ai_response(
                 break
 
     if model == "groq":
-        return chat_with_groq(messages_with_context, user_settings)
+        return chat_with_groq(
+            messages=messages_with_context,
+            user_settings=user_settings,
+            project_context=project_context,
+        )
     elif model == "openrouter":
-        return chat_with_openrouter(messages_with_context, user_settings)
+        return chat_with_openrouter(
+            messages=messages_with_context,
+            user_settings=user_settings,
+            project_context=project_context,
+        )
 
     try:
-        return chat_with_gemini(messages_with_context, image_data, image_mime, user_settings)
+        return chat_with_gemini(
+            messages=messages_with_context,
+            image_data=image_data,
+            image_mime=image_mime,
+            user_settings=user_settings,
+            project_context=project_context,
+        )
 
     except Exception as e:
         print(f"Gemini Failed: {e}")
 
         try:
-            return chat_with_groq(messages_with_context, user_settings)
+            return chat_with_groq(
+                messages=messages_with_context,
+                user_settings=user_settings,
+                project_context=project_context,
+            )
 
         except Exception as e:
             print(f"Groq Failed: {e}")
 
-            return chat_with_openrouter(messages_with_context, user_settings)
+            return chat_with_openrouter(
+                messages=messages_with_context,
+                user_settings=user_settings,
+                project_context=project_context,
+            )

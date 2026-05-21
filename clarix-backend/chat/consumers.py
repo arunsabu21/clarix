@@ -107,9 +107,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # User settings
             user_settings = await self.get_user_settings()
 
+            # Project context
+            project_context = await self.get_project_context(conversation)
+
             # Get AI response
             ai_response = await self.get_ai_response(
-                history, model, image_data, image_mime, user_settings
+                history=history,
+                model=model,
+                image_data=image_data,
+                image_mime=image_mime,
+                user_settings=user_settings,
+                project_context=project_context,
             )
 
             self.streaming_task = asyncio.ensure_future(
@@ -228,8 +236,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def get_ai_response(
-        self, history, model, image_data=None, image_mime=None, user_settings=None
+        self,
+        history,
+        model,
+        image_data=None,
+        image_mime=None,
+        user_settings=None,
+        project_context=None,
     ):
+        print("GET AI_RESPONSE PROJECT_CONTEXT:", project_context)
         from .services.llm import get_ai_response as llm_response
         from .services.web_search import should_search
 
@@ -241,7 +256,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         self._search_performed = bool(last_user_msg and should_search(last_user_msg))
 
-        return llm_response(history, model, image_data, image_mime, user_settings)
+        return llm_response(
+            history,
+            model,
+            image_data=image_data,
+            image_mime=image_mime,
+            user_settings=user_settings,
+            project_context=project_context,
+        )
 
     @database_sync_to_async
     def get_user_settings(self):
@@ -261,3 +283,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "professional_preference": "intermediate",
                 "work_type": "other",
             }
+
+    @database_sync_to_async
+    def get_project_context(self, conversation):
+        try:
+            conv = Conversation.objects.select_related("project").get(
+                id=conversation.id
+            )
+            if conv.project:
+                return {
+                    "name": conv.project.name,
+                    "description": conv.project.description or "",
+                }
+            return None
+
+        except Exception as e:
+            print(f"Project context error: {e}")
+            return None
