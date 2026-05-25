@@ -56,14 +56,12 @@ function Sidebar({
     fetchPlan();
   }, []);
 
-  // Persist sidebar state on desktop
   useEffect(() => {
     if (window.innerWidth > 768) {
       localStorage.setItem("sidebar", JSON.stringify(isOpen));
     }
   }, [isOpen]);
 
-  // Close user menu on outside click
   useEffect(() => {
     const handler = (e) => {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
@@ -74,7 +72,15 @@ function Sidebar({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Load conversations on mount
+  const fetchConversations = async () => {
+    try {
+      const res = await getConversations();
+      setConversations(res.data.results || []);
+    } catch (err) {
+      console.error("Failed to load conversations:", err);
+    }
+  };
+
   useEffect(() => {
     fetchConversations();
   }, []);
@@ -84,16 +90,7 @@ function Sidebar({
     if (refreshSidebarRef) {
       refreshSidebarRef.current = fetchConversations;
     }
-  }, []);
-
-  const fetchConversations = async () => {
-    try {
-      const res = await getConversations();
-      setConversations(res.data.results || []);
-    } catch (err) {
-      console.error("Failed to load conversations:", err);
-    }
-  };
+  }, [refreshSidebarRef]);
 
   const handleDelete = async (e, id) => {
     e.stopPropagation();
@@ -125,7 +122,6 @@ function Sidebar({
 
   return (
     <>
-      {/* Mobile overlay backdrop */}
       {isOpen && (
         <div
           className="sidebar-backdrop"
@@ -134,7 +130,6 @@ function Sidebar({
         />
       )}
 
-      {/* Mobile: floating open button — lives outside sidebar so it's always reachable */}
       {!isOpen && (
         <button
           className="sidebar__mobile-open"
@@ -148,7 +143,6 @@ function Sidebar({
       <aside
         className={`sidebar ${isOpen ? "sidebar--open" : "sidebar--collapsed"}`}
       >
-        {/* ── Header ── */}
         <div className="sidebar__header">
           {isOpen && (
             <div className="sidebar__logo">
@@ -164,9 +158,7 @@ function Sidebar({
           </button>
         </div>
 
-        {/* ── Body ── */}
         <div className="sidebar__body">
-          {/* New Chat */}
           <button className="sidebar__new-chat" onClick={handleNewChat}>
             <CirclePlus size={15} strokeWidth={2} />
             {isOpen && <span>New Chat</span>}
@@ -177,11 +169,17 @@ function Sidebar({
               <Search size={18} strokeWidth={1.5} />
               {isOpen && <span>Search</span>}
             </button>
-            <button className="sidebar__nav-item" onClick={() => navigate("/recents")}>
+            <button
+              className="sidebar__nav-item"
+              onClick={() => navigate("/recents")}
+            >
               <MessageSquare size={18} strokeWidth={1.5} />
               {isOpen && <span>Chats</span>}
             </button>
-            <button className="sidebar__nav-item">
+            <button
+              className="sidebar__nav-item"
+              onClick={() => navigate("/projects")}
+            >
               <FolderOpen size={18} strokeWidth={1.5} />
               {isOpen && <span>Projects</span>}
             </button>
