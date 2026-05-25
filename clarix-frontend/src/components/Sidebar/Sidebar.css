@@ -639,3 +639,12 @@
     transform: translateY(0);
   }
 }
+
+.sidebar__conv-project {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}

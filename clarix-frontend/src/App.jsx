@@ -9,6 +9,7 @@ import UpgradeSuccess from "./pages/UpgradeSuccess";
 import UserSettings from "./pages/Settings";
 import SearchChats from "./pages/Chats";
 import Projects from "./pages/Projects";
+import ProjectDetailsAndMessage from "./pages/ProjectDetails";
 import ProtectedRoute from "./routes/ProtectedRoute";
 
 function ChatWrapper() {
@@ -81,6 +82,14 @@ function App() {
         element={
           <ProtectedRoute>
             <Projects />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:projectId"
+        element={
+          <ProtectedRoute>
+            <ProjectDetailsAndMessage />
           </ProtectedRoute>
         }
       />

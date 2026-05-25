@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useProjects } from "../hooks/useProjects";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import Sidebar from "../components/Sidebar/Sidebar";
 import Message from "../components/common/Alert";
 import {
@@ -95,7 +95,7 @@ function NewProjectModal({ onClose, onCreate }) {
     if (result.success) {
       onClose();
     } else {
-      console.log(error);
+      console.log(result.error);
       setError(result.error);
     }
     setLoading(false);
@@ -215,7 +215,6 @@ function OptionMenu({ project, onArchive, onDelete, onClose }) {
 }
 
 function Projects() {
-  const navigate = useNavigate();
 
   const {
     projects,
@@ -225,15 +224,11 @@ function Projects() {
     setArchived,
     search,
     setSearch,
-    ordering,
     setOrdering,
     createProject,
-    updateProject,
     deleteProject,
     archiveProject,
     unarchiveProject,
-    addConversation,
-    reorderProjects,
   } = useProjects();
 
   const [showCreate, setShowCreate] = useState(false);

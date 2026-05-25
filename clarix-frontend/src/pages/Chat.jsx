@@ -17,6 +17,7 @@ import {
   ThumbsDown,
   Ghost,
   Search,
+  ArrowRight,
 } from "lucide-react";
 import ClarixIcon from "../components/common/ClarixIcon";
 import ButtonSpinner from "../components/chat/ButtonSpinner";
@@ -58,6 +59,7 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
   const [plan, setPlan] = useState("free");
   const [aiName, setAiName] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+  const [projectInfo, setProjectInfo] = useState(null);
 
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -69,98 +71,214 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
   const isSearchingRef = useRef(false);
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchPlan = async () => {
       try {
         const res = await api.get("/billing/status/");
-        setPlan(res.data.plan);
-      } catch {}
+        if (isMounted) {
+          setPlan(res?.data?.plan ?? null);
+        }
+      } catch (error) {
+        console.error("Failed to fetch billing", error);
+
+        if (isMounted) {
+          setPlan(null);
+        }
+      }
     };
     fetchPlan();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
+    if (!conversationId) {
+      setProjectInfo(null);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchConversationProject = async () => {
+      try {
+        const res = await getConversation(conversationId);
+        if (!isMounted) return;
+        setProjectInfo(res?.data?.project ?? null);
+      } catch (error) {
+        console.error("Failed to fetch conversation project", error);
+
+        if (isMounted) {
+          setProjectInfo(null);
+        }
+      }
+    };
+    fetchConversationProject();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [conversationId]);
+
+  useEffect(() => {
+    let isMounted = true;
+
     const fetchAiName = async () => {
       try {
         const res = await api.get("/settings/general/");
-        setAiName(res.data.ai_name || "");
-      } catch {}
+        if (isMounted) {
+          setAiName(res?.data?.ai_name ?? "");
+        }
+      } catch (error) {
+        console.error("Failed to fetch AI name", error);
+
+        if (isMounted) {
+          setAiName("");
+        }
+      }
     };
     fetchAiName();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  useEffect(() => {
+    const pending = sessionStorage.getItem("pending_message");
+    if (pending && conversationId) {
+      sessionStorage.removeItem("pending_message");
+
+      setTimeout(() => {
+        sendSocketMessage(pending, conversationId, model);
+        setMessages([{ role: "user", text: pending }]);
+      }, 500);
+    }
+  }, [conversationId, model]);
 
   const setIsSearchingBoth = (val) => {
     isSearchingRef.current = val;
     setIsSearching(val);
   };
 
-  socketHandlerRef.current = (data) => {
-    if (data.type === "typing") {
-      setIsTyping(true);
-      setIsStreaming(true);
-      streamRef.current = "";
-      setMessages((prev) => [...prev, { role: "ai", text: "" }]);
-    }
+  useEffect(() => {
+    socketHandlerRef.current = (data) => {
+      if (!data?.type) {
+        console.warn("Invalid socket payload", data);
+        return;
+      }
 
-    if (data.type === "search_used") {
-      setIsSearching(true);
-    }
+      switch (data.type) {
+        case "typing": {
+          setIsTyping(true);
+          setIsStreaming(true);
+          setIsSearching(false);
 
-    if (data.type === "stream") {
-      setIsSearching(false);
-      streamRef.current += data.content;
+          streamRef.current = "";
 
-      setMessages((prev) => {
-        const updated = [...prev];
-        const last = updated[updated.length - 1];
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: "ai",
+              text: "",
+            },
+          ]);
 
-        if (last && last.role === "ai") {
-          last.text = streamRef.current;
+          break;
         }
 
-        return updated;
-      });
+        case "search_used": {
+          setIsSearching(true);
+          break;
+        }
 
-      setIsTyping(false);
-    }
+        case "stream": {
+          setIsSearching(false);
+          setIsTyping(false);
 
-    if (data.type === "done") {
-      setIsSearching(false);
-      setMessages((prev) => [...prev, { role: "ai", text: streamRef.current }]);
-      setStreamingText("");
-      streamRef.current = "";
-      setIsTyping(false);
-      setIsStreaming(false);
+          streamRef.current += data.content || "";
 
-      const notifyEnabled = localStorage.getItem("notify_response_complete");
-      if (notifyEnabled === "true") {
-        showResponseCompleteNotification(data.title || "your message", setMsg);
+          setMessages((prev) => {
+            if (!prev.length) return prev;
+
+            const updated = [...prev];
+            const lastIndex = updated.length - 1;
+            const lastMessage = updated[lastIndex];
+
+            if (lastMessage?.role === "ai") {
+              updated[lastIndex] = {
+                ...lastMessage,
+                text: streamRef.current,
+              };
+            }
+
+            return updated;
+          });
+
+          break;
+        }
+
+        case "done": {
+          setIsSearching(false);
+          setIsTyping(false);
+          setIsStreaming(false);
+          setStreamingText("");
+
+          const notifyEnabled = localStorage.getItem(
+            "notify_response_complete",
+          );
+
+          if (notifyEnabled === "true") {
+            showResponseCompleteNotification(
+              data.title || "Your message",
+              setMsg,
+            );
+          }
+
+          if (!conversationIdRef.current && data.conversation_id) {
+            justCreatedRef.current = true;
+
+            setConversationId(data.conversation_id);
+
+            conversationIdRef.current = data.conversation_id;
+
+            setConversationTitle(data.title || "New Chat");
+
+            onConversationCreated?.();
+          }
+
+          streamRef.current = "";
+
+          break;
+        }
+
+        case "error": {
+          console.error("Socket error:", data);
+
+          setIsSearching(false);
+          setIsTyping(false);
+          setIsStreaming(false);
+          setStreamingText("");
+
+          const message =
+            data.message || "Something went wrong. Please try again.";
+
+          setError(message);
+
+          if (message.includes("message limit") || message.includes("wait")) {
+            setRateLimitError(message);
+          }
+
+          break;
+        }
+
+        default: {
+          console.warn("Unhandled socket event", data.type);
+        }
       }
-
-      if (!conversationIdRef.current) {
-        justCreatedRef.current = true;
-        setConversationId(data.conversation_id);
-        conversationIdRef.current = data.conversation_id;
-        setConversationTitle(data.title || "New Chat");
-        onConversationCreated?.();
-      }
-    }
-
-    if (data.type === "error") {
-      setIsSearching(false);
-      setIsStreaming(false);
-      if (
-        data.message?.includes("message limit") ||
-        data.message?.includes("wait")
-      ) {
-        setError(data.message);
-        setRateLimitError(data.message);
-      } else {
-        setError(data.message);
-      }
-      setIsTyping(false);
-      setStreamingText("");
-    }
-  };
+    };
+  }, [onConversationCreated, setConversationId, setMsg]);
 
   // WebSocket connection
   useEffect(() => {
@@ -180,6 +298,22 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
       }
     };
   }, []);
+
+  const loadConversation = async (id) => {
+    try {
+      const res = await getConversation(id);
+      setConversationTitle(res.data.title?.trim() || "New Chat");
+
+      const formatted = res.data.messages.map((m) => ({
+        role: m.role === "assistant" ? "ai" : "user",
+        text: m.content,
+      }));
+
+      setMessages(formatted);
+    } catch {
+      setError("Failed to load conversation.");
+    }
+  };
 
   useEffect(() => {
     if (!conversationId) {
@@ -206,64 +340,71 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
   }, [conversationId]);
 
   useEffect(() => {
-    if (document.visibilityState === "visible") {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (document.visibilityState !== "visible") {
+      return;
     }
-  }, [messages, isTyping, isSearching, streamingText]);
+
+    messagesEndRef.current?.scrollIntoView({
+      behavior: isStreaming ? "auto" : "smooth",
+      block: "end",
+    });
+  }, [messages, isTyping, isSearching, streamingText, isStreaming]);
 
   useEffect(() => {
     const el = textareaRef.current;
-    if (el) {
-      el.style.height = "auto";
-      el.style.height = el.scrollHeight + "px";
-    }
+
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
   }, [input]);
 
   useEffect(() => {
     conversationIdRef.current = conversationId;
   }, [conversationId]);
 
-  const loadConversation = async (id) => {
-    try {
-      const res = await getConversation(id);
-      setConversationTitle(res.data.title?.trim() || "New Chat");
-
-      const formatted = res.data.messages.map((m) => ({
-        role: m.role === "assistant" ? "ai" : "user",
-        text: m.content,
-      }));
-
-      setMessages(formatted);
-    } catch {
-      setError("Failed to load conversation.");
-    }
-  };
-
   // Delete Conversation
   const handleDeleteConversation = async () => {
-    if (!conversationIdRef.current) return;
+    const currentConversationId = conversationIdRef.current;
+
+    if (!currentConversationId) {
+      return;
+    }
+
     try {
-      await deleteConversation(conversationIdRef.current);
+      await deleteConversation(currentConversationId);
       setShowTitleMenu(false);
       setConversationTitle("");
-      onConversationCreated?.();
-      setConversationId(null);
-      conversationIdRef.current = null;
       setMessages([]);
-    } catch {
-      setError("Failed to delete conversation.");
+      setConversationId(null);
+
+      conversationIdRef.current = null;
+      onConversationCreated?.();
+    } catch (error) {
+      console.error("Failed to delete conversation:", error);
+      setError("Failed to delete conversation");
     }
   };
 
   // Regenerate conversation
   const handleRegenerate = () => {
-    const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
-    if (!lastUserMsg) return;
+    const lastUserMsg = [...messages]
+      .reverse()
+      .find((message) => message.role === "user");
+
+    if (!lastUserMsg?.text) {
+      return;
+    }
+
+    if (!conversationIdRef.current) {
+      setError("Conversation not found.");
+      return;
+    }
 
     setMessages((prev) => {
       const updated = [...prev];
+
       for (let i = updated.length - 1; i >= 0; i--) {
-        if (updated[i].role === "ai") {
+        if (updated[i]?.role === "ai") {
           updated.splice(i, 1);
           break;
         }
@@ -272,6 +413,12 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
     });
 
     setError("");
+    setIsTyping(true);
+    setIsStreaming(true);
+    setIsSearching(false);
+
+    streamRef.current = "";
+
     sendSocketMessage(lastUserMsg.text, conversationIdRef.current, model);
   };
 
@@ -292,9 +439,23 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Good Morning";
-    if (hour < 17) return "Good Afternoon";
-    return "Good Evening";
+
+    if (hour < 5) {
+      return "Working late tonight";
+    }
+
+    if (hour < 12) {
+      return "Good Morning";
+    }
+
+    if (hour < 17) {
+      return "Good Afternoon";
+    }
+
+    if (hour < 21) {
+      return "Good Evening";
+    }
+    return "Relaxing tonight";
   };
 
   const sendMessage = async () => {
@@ -435,13 +596,26 @@ function Chat({ conversationId, setConversationId, onConversationCreated }) {
             </div>
           )}
 
+          {projectInfo && (
+            <div className="chat-project-bar">
+              <span>{projectInfo.icon || ""}</span>
+              <span>{projectInfo.name || ""}</span>
+              <Link
+                to={`/projects/${projectInfo.id}`}
+                className="chat-project-link"
+              >
+                View project <ArrowRight size={16} />
+              </Link>
+            </div>
+          )}
+
           {(messages.length > 0 || streamingText) && (
             <div className="messages">
               {messages.map((m, i) => {
                 const isLastAI = m.role === "ai" && i === messages.length - 1;
 
                 return (
-                  <div key={i} className={`message ${m.role}`}>
+                  <div key={m.id} className={`message ${m.role}`}>
                     {m.role === "ai" ? (
                       <>
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>

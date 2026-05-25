@@ -228,8 +228,7 @@
 }
 
 .pro-card-base:hover .pro-card {
-  border-color: var(--color-text-secondary);
-  background-color: var(--color-bg-secondary);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .pro-name {
@@ -408,7 +407,7 @@
   margin: 3px 0;
 }
 
-/* create modal */
+
 .pro-modal-backdrop {
   position: fixed;
   inset: 0;
