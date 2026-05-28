@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CheckCircle2, Sparkles, ArrowRight, Loader2 } from "lucide-react";
+import Message from "../components/common/Alert";
 import api from "../services/api";
 
 import "../styles/PaymentSuccess.css";
@@ -11,33 +12,50 @@ export default function UpgradeSuccess() {
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState("pro");
   const [portalLoading, setPortalLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const sessionId = searchParams.get("session_id");
 
   useEffect(() => {
-    // Verify Session
+    if (!sessionId) return;
+    let isMounted = true;
+
     const verifySession = async () => {
       try {
         const response = await api.get("/billing/status/");
-        setPlan(response.data);
-      } catch (err) {
-        console.error("Failed to fetch billing status:", err);
+
+        if (!isMounted) return;
+        setPlan(response?.data ?? null);
+      } catch (error) {
+        console.error("Failed to fetch billing status:", error);
+        setError("Something went wrong. Try again later.");
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
-
     const timer = setTimeout(verifySession, 1500);
-    return () => clearTimeout(timer);
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
   }, [sessionId]);
 
   const handleManageSubscription = async () => {
     try {
       setPortalLoading(true);
+
       const response = await api.get("/billing/portal/");
-      window.location.href = response.data.portal_url;
-    } catch (err) {
-      console.error("Portal error:", err);
+      const portalUrl = response?.data?.portal_url;
+
+      if (!portalUrl) {
+        setError("Failed to open billing portal");
+      }
+      window.location.assign(portalUrl);
+    } catch (error) {
+      console.error("Portal error:", error);
+      setError("Something went wrong. Try again later.");
     } finally {
       setPortalLoading(false);
     }
@@ -56,6 +74,7 @@ export default function UpgradeSuccess() {
 
   return (
     <>
+      <Message type="warning" text={error} onClose={() => setError("")} />
       <div id="paymentLayout">
         <div className="payment-success-card">
           {loading ? (

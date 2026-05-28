@@ -1,4 +1,5 @@
 import { useState } from "react";
+import SearchModal from "../components/chat/SearchModal";
 import Sidebar from "../components/Sidebar/Sidebar";
 
 function MainLayout({
@@ -8,6 +9,7 @@ function MainLayout({
   activeConversationId,
   refreshSidebarRef,
 }) {
+  const [showSearchModal, setShowSearchModal] = useState(false);
   return (
     <div id="app">
       <Sidebar
@@ -15,7 +17,18 @@ function MainLayout({
         onSelectConversation={onSelectConversation}
         activeConversationId={activeConversationId}
         refreshSidebarRef={refreshSidebarRef}
+        onOpenSearch={() => setShowSearchModal(true)}
       />
+
+      {showSearchModal && (
+        <SearchModal
+          onClose={() => setShowSearchModal(false)}
+          onSelectConversation={(id) => {
+            onSelectConversation?.(id);
+            setShowSearchModal(false);
+          }}
+        />
+      )}
       <main className="main">{children}</main>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CirclePlus,
@@ -29,15 +29,25 @@ function Sidebar({
   onSelectConversation,
   activeConversationId,
   refreshSidebarRef,
+  onOpenSearch,
 }) {
   const { user, logout } = useAuthGlobal();
   const navigate = useNavigate();
 
   const [isOpen, setIsOpen] = useState(() => {
-    const isMobile = window.matchMedia("(max-width: 768px)").matches;
-    if (isMobile) return false;
-    const saved = localStorage.getItem("sidebar");
-    return saved !== null ? JSON.parse(saved) : true;
+    try {
+      const isMobile = window.matchMedia("(max-width: 768px)").matches;
+
+      if (isMobile) {
+        return false;
+      }
+
+      const saved = localStorage.getItem("sidebar");
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch (error) {
+      console.error("Failed to restore sidebar state:", error);
+      return false;
+    }
   });
 
   const [conversations, setConversations] = useState([]);
@@ -47,50 +57,78 @@ function Sidebar({
   const [plan, setPlan] = useState("free");
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchPlan = async () => {
       try {
         const res = await api.get("/billing/status/");
-        setPlan(res.data.plan);
-      } catch {}
+        if (!isMounted) return;
+
+        setPlan(res?.data?.plan ?? "free");
+      } catch (error) {
+        console.error("Failed to fetch billing plan:", error);
+      }
     };
     fetchPlan();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
-    if (window.innerWidth > 768) {
+    try {
+      if (window.innerWidth <= 768) {
+        return;
+      }
+
       localStorage.setItem("sidebar", JSON.stringify(isOpen));
+    } catch (error) {
+      console.error("Failed to save sidebar state:", error);
     }
   }, [isOpen]);
 
   useEffect(() => {
-    const handler = (e) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+    const handleClickOutside = (event) => {
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(event.target)
+      ) {
         setUserMenuOpen(false);
       }
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside
+      );
+    };
   }, []);
 
-  const fetchConversations = async () => {
+  const fetchConversations = useCallback(async () => {
     try {
       const res = await getConversations();
-      setConversations(res.data.results || []);
-    } catch (err) {
-      console.error("Failed to load conversations:", err);
+      setConversations(res?.data?.results || []);
+    } catch (error) {
+      console.error("Failed to load conversations:", error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchConversations();
-  }, []);
+  }, [fetchConversations]);
 
-  // Expose refresh fn via ref
   useEffect(() => {
     if (refreshSidebarRef) {
       refreshSidebarRef.current = fetchConversations;
     }
-  }, [refreshSidebarRef]);
+  }, [refreshSidebarRef, fetchConversations]);
 
   const handleDelete = async (e, id) => {
     e.stopPropagation();
@@ -165,7 +203,7 @@ function Sidebar({
           </button>
 
           <div className="sidebar__nav">
-            <button className="sidebar__nav-item">
+            <button className="sidebar__nav-item" onClick={onOpenSearch}>
               <Search size={18} strokeWidth={1.5} />
               {isOpen && <span>Search</span>}
             </button>
