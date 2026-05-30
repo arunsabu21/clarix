@@ -39,7 +39,7 @@
   font-family: inherit;
   font-size: 13.5px;
   font-weight: 400;
-  color: var(--color-text-muted, #9a9590);
+  color: var(--color-text-primary);
   transition:
     background 0.15s ease,
     color 0.15s ease;
@@ -640,11 +640,26 @@
   }
 }
 
-.sidebar__conv-project {
-  font-size: 10px;
-  color: var(--color-text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  margin-top: 2px;
+.sidebar__project-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  width: 100%;
+  padding: 8px 12px;
+
+  background: none;
+  border: none;
+  border-radius: 8px;
+
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--color-text-primary);
+  text-align: left;
+}
+
+.sidebar__project-item:hover {
+  background: var(--hover-main, #eeebe6);
+  color: var(--color-text, #1a1a1a);
 }

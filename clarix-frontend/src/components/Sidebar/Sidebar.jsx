@@ -16,6 +16,22 @@ import {
   Circle,
   CircleArrowUp,
   Globe,
+  Folder,
+  Briefcase,
+  Code2,
+  Book,
+  Heart,
+  Rocket,
+  Terminal,
+  Camera,
+  Music,
+  Gamepad2,
+  Coffee,
+  Plane,
+  Dumbbell,
+  Shield,
+  PenTool,
+  GraduationCap,
 } from "lucide-react";
 import api from "../../services/api";
 import ClarixLogo from "../common/ClarixLogo";
@@ -23,6 +39,25 @@ import { getConversations, deleteConversation } from "../../services/chat";
 import { useAuthGlobal } from "../../context/AuthContext";
 import LoginTooltip from "../Sidebar/LoginTooltip";
 import "./Sidebar.css";
+
+const PROJECT_ICONS = {
+  folder: Folder,
+  briefcase: Briefcase,
+  code: Code2,
+  book: Book,
+  heart: Heart,
+  rocket: Rocket,
+  terminal: Terminal,
+  camera: Camera,
+  music: Music,
+  game: Gamepad2,
+  coffee: Coffee,
+  plane: Plane,
+  gym: Dumbbell,
+  security: Shield,
+  design: PenTool,
+  study: GraduationCap,
+};
 
 function Sidebar({
   onNewChat,
@@ -55,6 +90,7 @@ function Sidebar({
   const [hoveredId, setHoveredId] = useState(null);
   const userMenuRef = useRef(null);
   const [plan, setPlan] = useState("free");
+  const [projects, setProjects] = useState([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -76,6 +112,19 @@ function Sidebar({
     };
   }, []);
 
+  const fetchProjects = useCallback(async () => {
+    try {
+      const res = await api.get("/projects/");
+      setProjects(res.data || []);
+    } catch (error) {
+      console.error("Failed to fetch projects:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
+
   useEffect(() => {
     try {
       if (window.innerWidth <= 768) {
@@ -90,24 +139,15 @@ function Sidebar({
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        userMenuRef.current &&
-        !userMenuRef.current.contains(event.target)
-      ) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setUserMenuOpen(false);
       }
     };
 
-    document.addEventListener(
-      "mousedown",
-      handleClickOutside
-    );
+    document.addEventListener("mousedown", handleClickOutside);
 
     return () => {
-      document.removeEventListener(
-        "mousedown",
-        handleClickOutside
-      );
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
@@ -214,13 +254,33 @@ function Sidebar({
               <MessageSquare size={18} strokeWidth={1.5} />
               {isOpen && <span>Chats</span>}
             </button>
-            <button
-              className="sidebar__nav-item"
-              onClick={() => navigate("/projects")}
-            >
-              <FolderOpen size={18} strokeWidth={1.5} />
-              {isOpen && <span>Projects</span>}
-            </button>
+            <div>
+              <button
+                className="sidebar__nav-item"
+                onClick={() => navigate("/projects")}
+              >
+                <FolderOpen size={18} strokeWidth={1.5} />
+                {isOpen && <span>Projects</span>}
+              </button>
+
+              {isOpen &&
+                projects
+                  .filter((project) => !project.is_archived)
+                  .map((project) => {
+                    const Icon = PROJECT_ICONS[project.icon] || Folder;
+
+                    return (
+                      <button
+                        key={project.id}
+                        className="sidebar__project-item"
+                        onClick={() => navigate(`/projects/${project.id}`)}
+                      >
+                        <Icon size={14} color={project.color} />
+                        <span>{project.name}</span>
+                      </button>
+                    );
+                  })}
+            </div>
           </div>
 
           {/* Conversations */}
