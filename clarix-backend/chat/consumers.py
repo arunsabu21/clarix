@@ -74,11 +74,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             conversation_id = data.get("conversation_id")
             image_data = data.get("image_data")
             image_mime = data.get("image_mime")
+            incognito = data.get("incognito", False)
 
             if not user_message and not image_data:
                 return
 
             wait = await self.check_rate_limit()
+
             if wait:
                 config = RATE_LIMITS["ai_message"]
                 message = config["message"].format(wait_time=wait)
@@ -90,7 +92,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         }
                     )
                 )
-                return  # stop — no API call
+                return
+
+            if incognito:
+                await self.handle_incognito(user_message, model, image_data, image_mime)
+            else:
+                await self.handle_normal(
+                    user_message, model, conversation_id, image_data, image_mime
+                )
 
             # Get or create conversation
             conversation = await self.get_or_create_conversation(conversation_id)
@@ -139,8 +148,66 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 )
             )
 
+    async def handle_normal(
+        self, user_message, model, conversation_id, image_data, image_mime
+    ):
+        conversation = await self.get_or_create_conversation(conversation_id)
+        await self.save_message(conversation, "user", user_message)
+        await self.send(json.dumps({"type": "typing"}))
+        history = await self.get_history(conversation)
+        user_settings = await self.get_user_settings()
+        project_context = await self.get_project_context(conversation)
+
+        ai_response = await self.get_ai_response(
+            history,
+            model,
+            image_data=image_data,
+            image_mime=image_mime,
+            user_settings=user_settings,
+            project_context=project_context,
+        )
+
+        self.streaming_task = asyncio.ensure_future(
+            self.stream_response(
+                ai_response,
+                conversation,
+                user_message,
+                getattr(self, "_search_performed", False),
+                incognito=False,
+            )
+        )
+
+    async def handle_incognito(self, user_message, model, image_data, image_mime):
+        await self.send(json.dumps({"type": "typing"}))
+        history = [{"role": "user", "context": user_message}]
+        user_settings = await self.get_user_settings()
+
+        ai_response = await self.get_ai_response(
+            history,
+            model,
+            image_data=image_data,
+            image_mime=image_mime,
+            user_settings=user_settings,
+            project_context=None,
+        )
+
+        self.streaming_task = asyncio.ensure_future(
+            self.stream_response(
+                ai_response,
+                conversation=None,
+                user_message=user_message,
+                search_performed=getattr(self, "_search_performed", False),
+                incognito=True,
+            )
+        )
+
     async def stream_response(
-        self, ai_response, conversation, user_message, search_performed=False
+        self,
+        ai_response,
+        conversation,
+        user_message,
+        search_performed=False,
+        incognito=False,
     ):
         streamed = ""
         try:
@@ -173,18 +240,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
             pass
 
         finally:
-            if streamed:
+            if streamed and not incognito and conversation:
                 await self.save_message(conversation, "assistant", streamed)
 
-            await self.send(
-                json.dumps(
-                    {
-                        "type": "done",
-                        "conversation_id": str(conversation.id),
-                        "title": conversation.title or user_message[:60],
-                    }
-                )
-            )
+            done_payload = {"type": "done", "incognito": incognito}
+
+            if not incognito and conversation:
+                done_payload["conversation_id"] = str(conversation.id)
+                done_payload["title"] = conversation.title or user_message[:60]
+
+            await self.send(json.dumps(done_payload))
             self.streaming_task = None
 
     @database_sync_to_async

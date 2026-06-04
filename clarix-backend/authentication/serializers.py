@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import User
+from django.core.validators import RegexValidator
 
 
 class RequestOTPSerializer(serializers.Serializer):
@@ -9,7 +10,16 @@ class RequestOTPSerializer(serializers.Serializer):
 
 class VerifyOTPSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    otp = serializers.CharField(min_length=6, max_length=6)
+    otp = serializers.CharField(
+        min_length=6,
+        max_length=6,
+        validators=[
+            RegexValidator(
+                regex=r"^\d{6}$",
+                message="OTP must contain exactly 6 digits",
+            )
+        ],
+    )
 
 
 class UserSerializer(serializers.ModelSerializer):
